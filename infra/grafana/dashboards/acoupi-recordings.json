@@ -2,27 +2,11 @@
   "style": "dark",
   "editable": true,
   "graphTooltip": 0,
-  "schemaVersion": 39,
-  "templating": {
-    "list": []
-  },
-  "annotations": {
-    "list": [
-      {
-        "name": "Annotations & Alerts",
-        "datasource": {
-          "type": "grafana",
-          "uid": "-- Grafana --"
-        },
-        "enable": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
-        "hide": true,
-        "type": "dashboard"
-      }
-    ]
-  },
-  "uid": "acoupi-recordings-v2",
-  "title": "Recordings V2",
+  "schemaVersion": 36,
+  "templating": {},
+  "annotations": {},
+  "uid": "acoupi-recordings",
+  "title": "Recordings",
   "tags": [
     "acoupi",
     "recordings"
@@ -35,10 +19,6 @@
   "fiscalYearStartMonth": 0,
   "refresh": "30s",
   "version": 1,
-  "id": null,
-  "links": [],
-  "timepicker": {},
-  "weekStart": "",
   "panels": [
     {
       "type": "state-timeline",
@@ -58,24 +38,24 @@
           }
         }
       ],
-      "options": {
-        "columnWidth": 0.9,
-        "legend": {
-          "showLegend": false
-        },
-        "mergeValues": false,
-        "rowHeight": 0.9,
-        "showValue": "auto",
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
+      "options": null,
       "fieldConfig": {
         "defaults": {},
         "overrides": []
       },
       "id": 1,
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "\nSELECT\n  recordings.recorded_on AS time,\n  recordings.recorded_on + make_interval(secs => recordings.duration_seconds) AS timeend,\n  devices.device_name AS device,\n  recordings.sample_rate_hz::text AS value\nFROM recordings\nJOIN devices ON devices.id = recordings.device_id\nWHERE recordings.recorded_on >= $__timeFrom()\n  AND recordings.recorded_on <= $__timeTo()\nORDER BY devices.device_name, recordings.recorded_on;\n",
+          "rawQuery": true,
+          "format": "table",
+          "datasource": {
+            "type": "postgres",
+            "uid": "acoupi-postgres"
+          }
+        }
+      ],
       "title": "Recording Coverage Per Device",
       "datasource": {
         "type": "postgres",
@@ -87,41 +67,40 @@
         "x": 0,
         "y": 0
       },
-      "repeatDirection": "h",
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "acoupi-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  recordings.recorded_on AS time,\n  recordings.recorded_on + make_interval(secs => recordings.duration_seconds) AS timeend,\n  devices.device_name AS device,\n  recordings.sample_rate_hz::text AS value\nFROM recordings\nJOIN devices ON devices.id = recordings.device_id\nWHERE recordings.recorded_on >= $__timeFrom()\n  AND recordings.recorded_on <= $__timeTo()\nORDER BY devices.device_name, recordings.recorded_on;",
-          "refId": "A"
-        }
-      ]
+      "repeatDirection": "h"
     },
     {
       "type": "table",
       "transparent": false,
       "transformations": [],
       "options": {
-        "cellHeight": "sm",
+        "frameIndex": 0,
+        "showHeader": true,
+        "showTypeIcons": false,
         "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
+          "show": false,
+          "reducer": [],
+          "countRows": false
         },
-        "showHeader": true
+        "cellHeight": "sm"
       },
       "fieldConfig": {
         "defaults": {},
         "overrides": []
       },
       "id": 2,
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "\nSELECT\n  devices.device_name AS device,\n  recordings.recorded_on,\n  recordings.duration_seconds,\n  recordings.sample_rate_hz,\n  recordings.audio_channels,\n  recordings.bit_depth,\n  recordings.recording_uuid\nFROM recordings\nJOIN devices ON devices.id = recordings.device_id\nORDER BY recordings.recorded_on DESC\nLIMIT 20;\n",
+          "rawQuery": true,
+          "format": "table",
+          "datasource": {
+            "type": "postgres",
+            "uid": "acoupi-postgres"
+          }
+        }
+      ],
       "title": "Latest Recordings",
       "datasource": {
         "type": "postgres",
@@ -133,19 +112,7 @@
         "x": 0,
         "y": 14
       },
-      "repeatDirection": "h",
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "acoupi-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  devices.device_name AS device,\n  recordings.recorded_on,\n  recordings.duration_seconds,\n  recordings.sample_rate_hz,\n  recordings.audio_channels,\n  recordings.bit_depth,\n  recordings.recording_uuid\nFROM recordings\nJOIN devices ON devices.id = recordings.device_id\nORDER BY recordings.recorded_on DESC\nLIMIT 20;",
-          "refId": "A"
-        }
-      ]
+      "repeatDirection": "h"
     }
   ]
 }

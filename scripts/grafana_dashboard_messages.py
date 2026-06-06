@@ -1,65 +1,137 @@
 from __future__ import annotations
 
-from scripts.grafana_dashboards_common import (
-    grafana_dashboard,
-    json_from_builder,
-    point_timeseries_panel,
-    set_table_defaults,
-    set_targets,
-    table_panel,
-    target,
-    timeseries_panel,
+from grafana_foundation_sdk.builders import dashboard, table, timeseries
+from grafana_foundation_sdk.models.common import (
+    GraphDrawStyle,
+    LineInterpolation,
+    TableCellHeight,
+    TimeZoneBrowser,
+    VisibilityMode,
 )
+from grafana_foundation_sdk.models.dashboard import DashboardCursorSync, GridPos
+
+from scripts.grafana_dashboards_common import (
+    classic_palette,
+    default_legend,
+    json_from_builder,
+    postgres_ref,
+    single_tooltip,
+)
+from scripts.grafana_sql_datasource import PostgresQueryBuilder
+
+MESSAGES_OVER_TIME_SQL = """
+SELECT $__timeGroupAlias(received_at, '1m'), COUNT(*)::double precision AS value
+FROM mqtt_messages
+WHERE $__timeFilter(received_at)
+GROUP BY 1
+ORDER BY 1;
+"""
+
+
+def build_messages_over_time_panel() -> timeseries.Panel:
+    return (
+        timeseries.Panel()
+        .title("Messages Over Time")
+        .id(1)
+        .grid_pos(GridPos(h=8, w=24, x=0, y=0))
+        .datasource(postgres_ref())
+        .color_scheme(classic_palette())
+        .legend(default_legend())
+        .tooltip(single_tooltip())
+        .with_target(
+            PostgresQueryBuilder()
+            .query(MESSAGES_OVER_TIME_SQL)
+            .datasource(postgres_ref())
+            .format("time_series")
+        )
+    )
+
+
+MESSAGE_ACTIVITY_BY_DEVICE_SQL = """
+WITH device_rows AS (
+  SELECT
+    device_id,
+    dense_rank() OVER (ORDER BY device_id) AS row_index
+  FROM (SELECT DISTINCT device_id FROM mqtt_messages) devices
+)
+SELECT
+  m.received_at AS time,
+  m.device_id AS metric,
+  d.row_index::double precision AS value
+FROM mqtt_messages m
+JOIN device_rows d ON d.device_id = m.device_id
+WHERE $__timeFilter(m.received_at)
+ORDER BY m.received_at;
+"""
+
+
+def build_message_activity_by_device_panel() -> timeseries.Panel:
+    return (
+        timeseries.Panel()
+        .title("Message Activity By Device")
+        .id(3)
+        .grid_pos(GridPos(h=8, w=24, x=0, y=8))
+        .datasource(postgres_ref())
+        .color_scheme(classic_palette())
+        .legend(default_legend())
+        .tooltip(single_tooltip())
+        .draw_style(GraphDrawStyle.POINTS)
+        .line_interpolation(LineInterpolation.LINEAR)
+        .line_width(0)
+        .point_size(8)
+        .show_points(VisibilityMode.ALWAYS)
+        .span_nulls(False)
+        .min(0)
+        .with_target(
+            PostgresQueryBuilder()
+            .query(MESSAGE_ACTIVITY_BY_DEVICE_SQL)
+            .datasource(postgres_ref())
+            .format("time_series")
+        )
+    )
+
+
+RECENT_MESSAGES_SQL = """
+SELECT received_at, device_id, payload_device_id, message_type, topic, ingest_status
+FROM mqtt_messages
+ORDER BY received_at DESC
+LIMIT 100;
+"""
+
+
+def build_recent_messages_panel() -> table.Panel:
+    return (
+        table.Panel()
+        .title("Recent Messages")
+        .id(5)
+        .grid_pos(GridPos(h=12, w=24, x=0, y=16))
+        .datasource(postgres_ref())
+        .show_header(True)
+        .cell_height(TableCellHeight.SM)
+        .with_target(
+            PostgresQueryBuilder()
+            .query(RECENT_MESSAGES_SQL)
+            .datasource(postgres_ref())
+            .format("table")
+        )
+    )
 
 
 def build_dashboard() -> dict:
-    dashboard = grafana_dashboard(
-        "Messages V2",
-        "acoupi-messages-v2",
-        ["acoupi", "messages"],
-        refresh="30s",
-        time_from="now-24h",
-        time_to="now",
-        version=1,
+    dash = (
+        dashboard.Dashboard("Messages")
+        .uid("acoupi-messages")
+        .tags(["acoupi", "messages"])
+        .refresh("30s")
+        .style("dark")
+        .timezone(TimeZoneBrowser)
+        .time("now-24h", "now")
+        .tooltip(DashboardCursorSync.OFF)
+        .editable()
+        .version(1)
+        .with_panel(build_messages_over_time_panel())
+        .with_panel(build_message_activity_by_device_panel())
+        .with_panel(build_recent_messages_panel())
     )
-    panels = []
 
-    messages_over_time = json_from_builder(
-        timeseries_panel("Messages Over Time", 1, 8, 24, 0, 0)
-    )
-    set_targets(
-        messages_over_time,
-        target(
-            "time_series",
-            "SELECT $__timeGroupAlias(received_at, '1m'), COUNT(*)::double precision AS value\nFROM mqtt_messages\nWHERE $__timeFilter(received_at)\nGROUP BY 1\nORDER BY 1;",
-        ),
-    )
-    panels.append(messages_over_time)
-
-    activity_by_device = json_from_builder(
-        point_timeseries_panel("Message Activity By Device", 3, 8, 24, 0, 8)
-    )
-    set_targets(
-        activity_by_device,
-        target(
-            "time_series",
-            "WITH device_rows AS (\n  SELECT\n    device_id,\n    dense_rank() OVER (ORDER BY device_id) AS row_index\n  FROM (SELECT DISTINCT device_id FROM mqtt_messages) devices\n)\nSELECT\n  m.received_at AS time,\n  m.device_id AS metric,\n  d.row_index::double precision AS value\nFROM mqtt_messages m\nJOIN device_rows d ON d.device_id = m.device_id\nWHERE $__timeFilter(m.received_at)\nORDER BY m.received_at;",
-        ),
-    )
-    panels.append(activity_by_device)
-
-    recent_messages = json_from_builder(
-        table_panel("Recent Messages", 5, 12, 24, 0, 16)
-    )
-    set_table_defaults(recent_messages)
-    set_targets(
-        recent_messages,
-        target(
-            "table",
-            "SELECT received_at, device_id, payload_device_id, message_type, topic, ingest_status\nFROM mqtt_messages\nORDER BY received_at DESC\nLIMIT 100;",
-        ),
-    )
-    panels.append(recent_messages)
-
-    dashboard["panels"] = panels
-    return dashboard
+    return json_from_builder(dash)

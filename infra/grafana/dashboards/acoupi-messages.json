@@ -2,27 +2,11 @@
   "style": "dark",
   "editable": true,
   "graphTooltip": 0,
-  "schemaVersion": 39,
-  "templating": {
-    "list": []
-  },
-  "annotations": {
-    "list": [
-      {
-        "name": "Annotations & Alerts",
-        "datasource": {
-          "type": "grafana",
-          "uid": "-- Grafana --"
-        },
-        "enable": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
-        "hide": true,
-        "type": "dashboard"
-      }
-    ]
-  },
-  "uid": "acoupi-messages-v2",
-  "title": "Messages V2",
+  "schemaVersion": 36,
+  "templating": {},
+  "annotations": {},
+  "uid": "acoupi-messages",
+  "title": "Messages",
   "tags": [
     "acoupi",
     "messages"
@@ -35,10 +19,6 @@
   "fiscalYearStartMonth": 0,
   "refresh": "30s",
   "version": 1,
-  "id": null,
-  "links": [],
-  "timepicker": {},
-  "weekStart": "",
   "panels": [
     {
       "type": "timeseries",
@@ -65,6 +45,18 @@
         "overrides": []
       },
       "id": 1,
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "\nSELECT $__timeGroupAlias(received_at, '1m'), COUNT(*)::double precision AS value\nFROM mqtt_messages\nWHERE $__timeFilter(received_at)\nGROUP BY 1\nORDER BY 1;\n",
+          "rawQuery": true,
+          "format": "time_series",
+          "datasource": {
+            "type": "postgres",
+            "uid": "acoupi-postgres"
+          }
+        }
+      ],
       "title": "Messages Over Time",
       "datasource": {
         "type": "postgres",
@@ -76,19 +68,7 @@
         "x": 0,
         "y": 0
       },
-      "repeatDirection": "h",
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "acoupi-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT $__timeGroupAlias(received_at, '1m'), COUNT(*)::double precision AS value\nFROM mqtt_messages\nWHERE $__timeFilter(received_at)\nGROUP BY 1\nORDER BY 1;",
-          "refId": "A"
-        }
-      ]
+      "repeatDirection": "h"
     },
     {
       "type": "timeseries",
@@ -124,6 +104,18 @@
         "overrides": []
       },
       "id": 3,
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "\nWITH device_rows AS (\n  SELECT\n    device_id,\n    dense_rank() OVER (ORDER BY device_id) AS row_index\n  FROM (SELECT DISTINCT device_id FROM mqtt_messages) devices\n)\nSELECT\n  m.received_at AS time,\n  m.device_id AS metric,\n  d.row_index::double precision AS value\nFROM mqtt_messages m\nJOIN device_rows d ON d.device_id = m.device_id\nWHERE $__timeFilter(m.received_at)\nORDER BY m.received_at;\n",
+          "rawQuery": true,
+          "format": "time_series",
+          "datasource": {
+            "type": "postgres",
+            "uid": "acoupi-postgres"
+          }
+        }
+      ],
       "title": "Message Activity By Device",
       "datasource": {
         "type": "postgres",
@@ -135,41 +127,40 @@
         "x": 0,
         "y": 8
       },
-      "repeatDirection": "h",
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "acoupi-postgres"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "WITH device_rows AS (\n  SELECT\n    device_id,\n    dense_rank() OVER (ORDER BY device_id) AS row_index\n  FROM (SELECT DISTINCT device_id FROM mqtt_messages) devices\n)\nSELECT\n  m.received_at AS time,\n  m.device_id AS metric,\n  d.row_index::double precision AS value\nFROM mqtt_messages m\nJOIN device_rows d ON d.device_id = m.device_id\nWHERE $__timeFilter(m.received_at)\nORDER BY m.received_at;",
-          "refId": "A"
-        }
-      ]
+      "repeatDirection": "h"
     },
     {
       "type": "table",
       "transparent": false,
       "transformations": [],
       "options": {
-        "cellHeight": "sm",
+        "frameIndex": 0,
+        "showHeader": true,
+        "showTypeIcons": false,
         "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
+          "show": false,
+          "reducer": [],
+          "countRows": false
         },
-        "showHeader": true
+        "cellHeight": "sm"
       },
       "fieldConfig": {
         "defaults": {},
         "overrides": []
       },
       "id": 5,
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "\nSELECT received_at, device_id, payload_device_id, message_type, topic, ingest_status\nFROM mqtt_messages\nORDER BY received_at DESC\nLIMIT 100;\n",
+          "rawQuery": true,
+          "format": "table",
+          "datasource": {
+            "type": "postgres",
+            "uid": "acoupi-postgres"
+          }
+        }
+      ],
       "title": "Recent Messages",
       "datasource": {
         "type": "postgres",
@@ -181,19 +172,7 @@
         "x": 0,
         "y": 16
       },
-      "repeatDirection": "h",
-      "targets": [
-        {
-          "datasource": {
-            "type": "postgres",
-            "uid": "acoupi-postgres"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT received_at, device_id, payload_device_id, message_type, topic, ingest_status\nFROM mqtt_messages\nORDER BY received_at DESC\nLIMIT 100;",
-          "refId": "A"
-        }
-      ]
+      "repeatDirection": "h"
     }
   ]
 }

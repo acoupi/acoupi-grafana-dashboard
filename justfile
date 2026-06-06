@@ -18,7 +18,6 @@ populate:
 
 beat:
     uv run python scripts/send_test_heartbeat.py --topic acoupi/test-device-001
-    uv run python scripts/send_test_heartbeat.py --topic acoupi/test-device-002
     uv run python scripts/send_test_heartbeat.py --topic acoupi/test-device-003
 
 build-grafana:
