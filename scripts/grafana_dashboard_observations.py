@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 from grafana_foundation_sdk.builders import (
+    bargauge,
     dashboard,
     statushistory,
     table,
-    timeseries,
 )
+from grafana_foundation_sdk.builders.common import ReduceDataOptions
 from grafana_foundation_sdk.models.common import (
-    LegendDisplayMode,
+    BarGaugeValueMode,
     TableCellHeight,
     TimeZoneBrowser,
+    VizOrientation, BarGaugeDisplayMode,
 )
 from grafana_foundation_sdk.models.dashboard import (
     DashboardCursorSync,
@@ -23,7 +25,6 @@ from grafana_foundation_sdk.models.dashboard import (
 
 from scripts.grafana_dashboards_common import (
     classic_palette,
-    default_legend,
     json_from_builder,
     multi_tooltip_desc,
     postgres_ref,
@@ -127,12 +128,52 @@ LIMIT 500;
 """
 
 
+DETECTIONS_PER_SPECIES_SQL = """
+SELECT
+    species_tags.tag_value AS species,
+    COUNT(*)::double precision AS value
+FROM observations
+JOIN observation_tags AS species_tags ON species_tags.observation_id = observations.id
+JOIN devices ON devices.id = observations.device_id
+WHERE species_tags.tag_key = 'species'
+    AND COALESCE(species_tags.confidence_score, 0) >= ${confidence_threshold}
+    AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')
+    AND observations.recorded_on >= $__timeFrom()
+    AND observations.recorded_on <= $__timeTo()
+GROUP BY species_tags.tag_value
+ORDER BY value DESC, species ASC;
+"""
+
+
+def build_detections_per_species_panel():
+    return (
+        bargauge.Panel()
+        .title("Detections Per Species")
+        .id(5)
+        .grid_pos(GridPos(12, 24, 0, 20))
+        .datasource(postgres_ref())
+        .color_scheme(classic_palette())
+        .orientation(VizOrientation.HORIZONTAL)
+        .show_unfilled(True)
+        .value_mode(BarGaugeValueMode.COLOR)
+        .reduce_options(ReduceDataOptions().values(True))
+        .display_mode(BarGaugeDisplayMode.BASIC)
+        .min(0)
+        .with_target(
+            PostgresQueryBuilder()
+            .query(DETECTIONS_PER_SPECIES_SQL)
+            .datasource(postgres_ref())
+            .format("table")
+        )
+    )
+
+
 def build_observation_table():
     return (
         table.Panel()
         .title("Observation Records")
         .id(6)
-        .grid_pos(GridPos(14, 24, 0, 32))
+        .grid_pos(GridPos(14, 24, 0, 32 + 12))
         .datasource(DataSourceRef(type_val="postgres", uid="acoupi-postgres"))
         .show_header(True)
         .cell_height(TableCellHeight.SM)
@@ -231,6 +272,7 @@ def build_dashboard() -> dict:
         )
         .with_panel(build_observations_per_day())
         .with_panel(build_observations_per_hour())
+        .with_panel(build_detections_per_species_panel())
         .with_panel(build_observation_table())
     )
 

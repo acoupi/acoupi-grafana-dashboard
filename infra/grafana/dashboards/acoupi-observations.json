@@ -217,6 +217,57 @@
       "repeatDirection": "h"
     },
     {
+      "type": "bargauge",
+      "transparent": false,
+      "transformations": [],
+      "options": {
+        "displayMode": "basic",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "minVizWidth": 0,
+        "reduceOptions": {
+          "calcs": [],
+          "values": true
+        },
+        "minVizHeight": 10,
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "id": 5,
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "\nSELECT\n    species_tags.tag_value AS species,\n    COUNT(*)::double precision AS value\nFROM observations\nJOIN observation_tags AS species_tags ON species_tags.observation_id = observations.id\nJOIN devices ON devices.id = observations.device_id\nWHERE species_tags.tag_key = 'species'\n    AND COALESCE(species_tags.confidence_score, 0) >= ${confidence_threshold}\n    AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n    AND observations.recorded_on >= $__timeFrom()\n    AND observations.recorded_on <= $__timeTo()\nGROUP BY species_tags.tag_value\nORDER BY value DESC, species ASC;\n",
+          "rawQuery": true,
+          "format": "table",
+          "datasource": {
+            "type": "postgres",
+            "uid": "acoupi-postgres"
+          }
+        }
+      ],
+      "title": "Detections Per Species",
+      "datasource": {
+        "type": "postgres",
+        "uid": "acoupi-postgres"
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "repeatDirection": "h"
+    },
+    {
       "type": "table",
       "transparent": false,
       "transformations": [],
@@ -257,7 +308,7 @@
         "h": 14,
         "w": 24,
         "x": 0,
-        "y": 32
+        "y": 44
       },
       "repeatDirection": "h"
     }
