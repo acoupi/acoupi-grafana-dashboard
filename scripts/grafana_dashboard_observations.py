@@ -1,139 +1,289 @@
 from __future__ import annotations
 
-from grafana_foundation_sdk.models.dashboard import VariableSort
+from grafana_foundation_sdk.builders import (
+    barchart,
+    dashboard,
+    table,
+    timeseries,
+)
+from grafana_foundation_sdk.models.common import (
+    LegendDisplayMode,
+    TableCellHeight,
+    TimeZoneBrowser,
+)
+from grafana_foundation_sdk.models.dashboard import (
+    DashboardCursorSync,
+    DataSourceRef,
+    DataTransformerConfig,
+    GridPos,
+    VariableHide,
+    VariableOption,
+    VariableRefresh,
+    VariableSort,
+)
 
 from scripts.grafana_dashboards_common import (
-    barchart_panel,
-    confidence_threshold_variable,
-    grafana_dashboard,
+    classic_palette,
+    default_legend,
     json_from_builder,
     multi_tooltip_desc,
-    query_variable,
-    set_table_defaults,
-    set_targets,
-    table_panel,
-    target,
-    timeseries_panel,
+    postgres_ref,
 )
+from scripts.grafana_sql_datasource import PostgresQueryBuilder
+
+OBSERVATIONS_PER_DAY_SQL = """
+SELECT
+  date_trunc('day', o.recorded_on) AS time,
+  ot.tag_value AS metric,
+  COUNT(*)::double precision AS value
+FROM observations o
+JOIN observation_tags ot ON ot.observation_id = o.id
+JOIN devices ON devices.id = o.device_id
+WHERE ot.tag_key = 'species'
+  AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}
+  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')
+  AND o.recorded_on >= $__timeFrom()
+  AND o.recorded_on <= $__timeTo()
+GROUP BY 1, 2
+ORDER BY 1, 2;
+"""
+
+
+def build_observations_per_day():
+    return (
+        timeseries.Panel()
+        .title("Observations Per Species Per Day")
+        .id(3)
+        .grid_pos(GridPos(h=10, w=24, x=0, y=0))
+        .datasource(postgres_ref())
+        .color_scheme(classic_palette())
+        .legend(default_legend().display_mode(LegendDisplayMode.TABLE))
+        .tooltip(multi_tooltip_desc())
+        .with_target(
+            PostgresQueryBuilder()
+            .query(OBSERVATIONS_PER_DAY_SQL)
+            .datasource(postgres_ref())
+            .format("time_series")
+        )
+    )
+
+
+OBSERVATIONS_PER_HOUR_SQL = """
+SELECT
+  date_trunc('day', to_timestamp(0)) + make_interval(hours => EXTRACT(hour FROM o.recorded_on)::int) AS time,
+  ot.tag_value AS metric,
+  COUNT(*)::double precision AS value
+FROM observations o
+JOIN observation_tags ot ON ot.observation_id = o.id
+JOIN devices ON devices.id = o.device_id
+WHERE ot.tag_key = 'species'
+  AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}
+  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')
+  AND o.recorded_on::date = '${recording_day}'::date
+GROUP BY 1, 2
+ORDER BY 1, 2;
+"""
+
+
+def build_observations_per_hour():
+    return (
+        barchart.Panel()
+        .title("Observations Per Hour Of Day By Species")
+        .id(4)
+        .grid_pos(GridPos(10, 24, 0, 10))
+        .datasource(postgres_ref())
+        .color_scheme(classic_palette())
+        .legend(default_legend().display_mode(LegendDisplayMode.TABLE))
+        .tooltip(multi_tooltip_desc())
+        .time_from("1d")
+        .with_target(
+            PostgresQueryBuilder()
+            .query(OBSERVATIONS_PER_HOUR_SQL)
+            .datasource(postgres_ref())
+            .format("time_series")
+        )
+    )
+
+
+OBSERVATIONS_PER_HOUR_MATRIX_SQL = """
+SELECT
+  ot.tag_value AS species,
+  EXTRACT(hour FROM o.recorded_on)::int AS hour_of_day,
+  COUNT(*)::double precision AS detections
+FROM observations o
+JOIN observation_tags ot ON ot.observation_id = o.id
+JOIN devices ON devices.id = o.device_id
+WHERE ot.tag_key = 'species'
+  AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}
+  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')
+  AND o.recorded_on >= $__timeFrom()
+  AND o.recorded_on <= $__timeTo()
+GROUP BY 1, 2
+ORDER BY 1, 2;
+"""
+
+
+def build_observations_per_hour_matrix():
+
+    return (
+        table.Panel()
+        .title("Observations Per Species Per Hour Matrix")
+        .id(5)
+        .grid_pos(GridPos(12, 24, 0, 20))
+        .datasource(postgres_ref())
+        .show_header(True)
+        .cell_height(TableCellHeight.SM)
+        .with_transformation(
+            DataTransformerConfig(
+                id_val="groupingToMatrix",
+                options={
+                    "columnField": "hour_of_day",
+                    "emptyValue": "0",
+                    "rowField": "species",
+                    "valueField": "detections",
+                },
+            )
+        )
+        .with_target(
+            PostgresQueryBuilder()
+            .query(OBSERVATIONS_PER_HOUR_MATRIX_SQL)
+            .datasource(postgres_ref())
+            .format("table")
+        )
+    )
+
+
+OBSERVATION_TABLE_QUERY = """
+SELECT
+    species_tags.tag_value AS species,
+    devices.device_name AS device,
+    observations.recorded_on,
+    COALESCE(species_tags.confidence_score, 0) AS confidence_score,
+    observations.classified_by AS model_name,
+    observations.detection_score,
+    observations.event_start_seconds,
+    observations.event_end_seconds,
+    observations.frequency_low_hz,
+    observations.frequency_high_hz
+FROM observations
+JOIN observation_tags AS species_tags ON species_tags.observation_id = observations.id
+JOIN devices ON devices.id = observations.device_id
+WHERE species_tags.tag_key = 'species'
+    AND COALESCE(species_tags.confidence_score, 0) >= ${confidence_threshold}
+    AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')
+    AND observations.recorded_on >= $__timeFrom()
+    AND observations.recorded_on <= $__timeTo()
+ORDER BY observations.recorded_on DESC
+LIMIT 500;
+"""
+
+
+def build_observation_table():
+    return (
+        table.Panel()
+        .title("Observation Records")
+        .id(6)
+        .grid_pos(GridPos(14, 24, 0, 32))
+        .datasource(DataSourceRef(type_val="postgres", uid="acoupi-postgres"))
+        .show_header(True)
+        .cell_height(TableCellHeight.SM)
+        .with_target(
+            PostgresQueryBuilder()
+            .query(OBSERVATION_TABLE_QUERY)
+            .datasource(postgres_ref())
+            .format("table")
+        )
+    )
+
+
+DEVICE_NAME_SQL = """
+SELECT
+    '__all' AS __value,
+    'All' AS __text
+UNION ALL SELECT
+    device_name AS __value,
+    device_name AS __text
+FROM devices
+ORDER BY __text;
+"""
+
+
+def build_device_name_variable():
+    return (
+        dashboard.QueryVariable("device_name")
+        .id("device_name")
+        .label("Device")
+        .datasource(postgres_ref())
+        .hide(VariableHide.DONT_HIDE)
+        .include_all(False)
+        .multi(False)
+        .current(VariableOption(selected=True, text="All", value="__all"))
+        .query(DEVICE_NAME_SQL)
+        .refresh(VariableRefresh.ON_DASHBOARD_LOAD)
+        .sort(VariableSort.ALPHABETICAL_ASC)
+        .options([])
+    )
+
+
+RECORDING_DAY_SQL = """
+SELECT DISTINCT
+    to_char(recorded_on::date, 'YYYY-MM-DD') AS recording_day
+FROM observations
+ORDER BY recording_day DESC;
+"""
+
+
+def build_recording_day_variable():
+    return (
+        dashboard.QueryVariable("recording_day")
+        .id("recording_day")
+        .label("Recording Day (Hourly Panel)")
+        .datasource(postgres_ref())
+        .hide(VariableHide.DONT_HIDE)
+        .include_all(False)
+        .multi(False)
+        .current(VariableOption(selected=True, text="", value=""))
+        .query(RECORDING_DAY_SQL)
+        .refresh(VariableRefresh.ON_DASHBOARD_LOAD)
+        .sort(VariableSort.NUMERICAL_ASC)
+        .options([])
+    )
 
 
 def build_dashboard() -> dict:
-    dashboard = grafana_dashboard(
-        "Observations V2",
-        "acoupi-observations-v2",
-        ["acoupi", "ecology"],
-        refresh="30s",
-        time_from="now-30d",
-        time_to="now",
-        version=1,
-    )
-    dashboard["templating"]["list"] = [
-        confidence_threshold_variable(),
-        query_variable(
-            "device_name",
-            "Device",
-            "SELECT '__all' AS __value, 'All' AS __text UNION ALL SELECT device_name AS __value, device_name AS __text FROM devices ORDER BY __text;",
-            current_text="All",
-            current_value="__all",
-            sort=VariableSort.ALPHABETICAL_ASC,
-        ),
-        query_variable(
-            "recording_day",
-            "Recording Day (Hourly Panel)",
-            "SELECT DISTINCT to_char(recorded_on::date, 'YYYY-MM-DD') AS recording_day FROM observations ORDER BY recording_day DESC;",
-            current_text="",
-            current_value="",
-            sort=VariableSort.NUMERICAL_ASC,
-        ),
-    ]
-    panels = []
-
-    per_day = json_from_builder(
-        timeseries_panel(
-            "Observations Per Species Per Day (>= ${confidence_threshold})",
-            3,
-            10,
-            24,
-            0,
-            0,
-            legend_mode="table",
+    dash = (
+        dashboard.Dashboard("Observations")
+        .uid("acoupi-observations")
+        .tags(["acoupi", "observations"])
+        .refresh("30s")
+        .style("dark")
+        .timezone(TimeZoneBrowser)
+        .time("now-30d", "now")
+        .tooltip(DashboardCursorSync.OFF)
+        .editable()
+        .version(1)
+        .with_variable(build_device_name_variable())
+        .with_variable(build_recording_day_variable())
+        .with_variable(
+            dashboard.CustomVariable("confidence_threshold")
+            .id("confidence_threshold")
+            .label("Confidence Threshold")
+            .hide(VariableHide.DONT_HIDE)
+            .include_all(False)
+            .multi(False)
+            .current(VariableOption(selected=True, text="0.7", value="0.7"))
+            .options(
+                [
+                    VariableOption(selected=False, text="0.5", value="0.5"),
+                    VariableOption(selected=True, text="0.7", value="0.7"),
+                    VariableOption(selected=False, text="0.9", value="0.9"),
+                ]
+            )
         )
+        .with_panel(build_observations_per_day())
+        .with_panel(build_observations_per_hour())
+        .with_panel(build_observations_per_hour_matrix())
+        .with_panel(build_observation_table())
     )
-    per_day["options"]["tooltip"] = json_from_builder(multi_tooltip_desc())
-    set_targets(
-        per_day,
-        target(
-            "time_series",
-            "SELECT\n  date_trunc('day', o.recorded_on) AS time,\n  ot.tag_value AS metric,\n  COUNT(*)::double precision AS value\nFROM observations o\nJOIN observation_tags ot ON ot.observation_id = o.id\nJOIN devices ON devices.id = o.device_id\nWHERE ot.tag_key = 'species'\n  AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}\n  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n  AND o.recorded_on >= $__timeFrom()\n  AND o.recorded_on <= $__timeTo()\nGROUP BY 1, 2\nORDER BY 1, 2;",
-        ),
-    )
-    panels.append(per_day)
 
-    per_hour = json_from_builder(
-        barchart_panel(
-            "Observations Per Hour Of Day By Species (>= ${confidence_threshold})",
-            4,
-            10,
-            24,
-            0,
-            10,
-        )
-    )
-    per_hour["timeFrom"] = "1d"
-    set_targets(
-        per_hour,
-        target(
-            "time_series",
-            "SELECT\n  date_trunc('day', to_timestamp(0)) + make_interval(hours => EXTRACT(hour FROM o.recorded_on)::int) AS time,\n  ot.tag_value AS metric,\n  COUNT(*)::double precision AS value\nFROM observations o\nJOIN observation_tags ot ON ot.observation_id = o.id\nJOIN devices ON devices.id = o.device_id\nWHERE ot.tag_key = 'species'\n  AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}\n  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n  AND o.recorded_on::date = '${recording_day}'::date\nGROUP BY 1, 2\nORDER BY 1, 2;",
-        ),
-    )
-    panels.append(per_hour)
-
-    matrix = json_from_builder(
-        table_panel(
-            "Observations Per Species Per Hour Matrix (>= ${confidence_threshold})",
-            5,
-            12,
-            24,
-            0,
-            20,
-        )
-    )
-    set_table_defaults(matrix)
-    matrix["transformations"] = [
-        {
-            "id": "groupingToMatrix",
-            "options": {
-                "columnField": "hour_of_day",
-                "emptyValue": "0",
-                "rowField": "species",
-                "valueField": "detections",
-            },
-        }
-    ]
-    set_targets(
-        matrix,
-        target(
-            "table",
-            "SELECT\n  ot.tag_value AS species,\n  EXTRACT(hour FROM o.recorded_on)::int AS hour_of_day,\n  COUNT(*)::double precision AS detections\nFROM observations o\nJOIN observation_tags ot ON ot.observation_id = o.id\nJOIN devices ON devices.id = o.device_id\nWHERE ot.tag_key = 'species'\n  AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}\n  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n  AND o.recorded_on >= $__timeFrom()\n  AND o.recorded_on <= $__timeTo()\nGROUP BY 1, 2\nORDER BY 1, 2;",
-        ),
-    )
-    panels.append(matrix)
-
-    records = json_from_builder(
-        table_panel(
-            "Observation Records (>= ${confidence_threshold})", 6, 14, 24, 0, 32
-        )
-    )
-    set_table_defaults(records)
-    set_targets(
-        records,
-        target(
-            "table",
-            "SELECT\n  species_tags.tag_value AS species,\n  devices.device_name AS device,\n  observations.recorded_on,\n  COALESCE(species_tags.confidence_score, 0) AS confidence_score,\n  observations.classified_by AS model_name,\n  observations.detection_score,\n  observations.event_start_seconds,\n  observations.event_end_seconds,\n  observations.frequency_low_hz,\n  observations.frequency_high_hz\nFROM observations\nJOIN observation_tags AS species_tags ON species_tags.observation_id = observations.id\nJOIN devices ON devices.id = observations.device_id\nWHERE species_tags.tag_key = 'species'\n  AND COALESCE(species_tags.confidence_score, 0) >= ${confidence_threshold}\n  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n  AND observations.recorded_on >= $__timeFrom()\n  AND observations.recorded_on <= $__timeTo()\nORDER BY observations.recorded_on DESC\nLIMIT 500;",
-        ),
-    )
-    panels.append(records)
-
-    dashboard["panels"] = panels
-    return dashboard
+    return json_from_builder(dash)

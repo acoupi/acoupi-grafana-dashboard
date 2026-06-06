@@ -26,3 +26,5 @@ build-grafana:
 
 restart-grafana:
     docker compose restart grafana
+
+reload-grafana: build-grafana restart-grafana

@@ -14,10 +14,13 @@ from grafana_foundation_sdk.builders import (
 from grafana_foundation_sdk.builders.common import VizLegendOptions, VizTooltipOptions
 from grafana_foundation_sdk.builders.dashboard import (
     AnnotationQuery,
-    CustomVariable,
     Dashboard,
-    FieldColor as FieldColorBuilder,
     QueryVariable,
+)
+from grafana_foundation_sdk.builders.dashboard import (
+    FieldColor as FieldColorBuilder,
+)
+from grafana_foundation_sdk.builders.dashboard import (
     ThresholdsConfig as ThresholdsConfigBuilder,
 )
 from grafana_foundation_sdk.cog.encoder import JSONEncoder
