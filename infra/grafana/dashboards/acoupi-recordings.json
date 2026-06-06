@@ -25,16 +25,15 @@
       "transparent": false,
       "transformations": [
         {
-          "id": "organize",
+          "id": "partitionByValues",
           "options": {
-            "excludeByName": {},
-            "indexByName": {
-              "device": 0,
-              "time": 1,
-              "timeend": 2,
-              "value": 3
-            },
-            "renameByName": {}
+            "keepFields": true,
+            "fields": [
+              "device"
+            ],
+            "naming": {
+              "asLabels": true
+            }
           }
         }
       ],
@@ -47,7 +46,7 @@
       "targets": [
         {
           "refId": "A",
-          "rawSql": "\nSELECT\n  recordings.recorded_on AS time,\n  recordings.recorded_on + make_interval(secs => recordings.duration_seconds) AS timeend,\n  devices.device_name AS device,\n  recordings.sample_rate_hz::text AS value\nFROM recordings\nJOIN devices ON devices.id = recordings.device_id\nWHERE recordings.recorded_on >= $__timeFrom()\n  AND recordings.recorded_on <= $__timeTo()\nORDER BY devices.device_name, recordings.recorded_on;\n",
+          "rawSql": "\nSELECT\n  recordings.recorded_on AS time,\n  recordings.recorded_on + make_interval(secs => recordings.duration_seconds) AS timeend,\n  devices.device_name AS device\nFROM recordings\nJOIN devices ON devices.id = recordings.device_id\nWHERE recordings.recorded_on >= $__timeFrom()\n  AND recordings.recorded_on <= $__timeTo()\nORDER BY devices.device_name, recordings.recorded_on;\n",
           "rawQuery": true,
           "format": "table",
           "datasource": {

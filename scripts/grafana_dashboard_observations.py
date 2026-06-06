@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from grafana_foundation_sdk.builders import (
-    barchart,
     dashboard,
+    statushistory,
     table,
     timeseries,
 )
@@ -14,7 +14,6 @@ from grafana_foundation_sdk.models.common import (
 from grafana_foundation_sdk.models.dashboard import (
     DashboardCursorSync,
     DataSourceRef,
-    DataTransformerConfig,
     GridPos,
     VariableHide,
     VariableOption,
@@ -51,13 +50,12 @@ ORDER BY 1, 2;
 
 def build_observations_per_day():
     return (
-        timeseries.Panel()
+        statushistory.Panel()
         .title("Observations Per Species Per Day")
         .id(3)
         .grid_pos(GridPos(h=10, w=24, x=0, y=0))
         .datasource(postgres_ref())
         .color_scheme(classic_palette())
-        .legend(default_legend().display_mode(LegendDisplayMode.TABLE))
         .tooltip(multi_tooltip_desc())
         .with_target(
             PostgresQueryBuilder()
@@ -70,46 +68,9 @@ def build_observations_per_day():
 
 OBSERVATIONS_PER_HOUR_SQL = """
 SELECT
-  date_trunc('day', to_timestamp(0)) + make_interval(hours => EXTRACT(hour FROM o.recorded_on)::int) AS time,
+  date_trunc('hour', o.recorded_on) AS time,
   ot.tag_value AS metric,
   COUNT(*)::double precision AS value
-FROM observations o
-JOIN observation_tags ot ON ot.observation_id = o.id
-JOIN devices ON devices.id = o.device_id
-WHERE ot.tag_key = 'species'
-  AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}
-  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')
-  AND o.recorded_on::date = '${recording_day}'::date
-GROUP BY 1, 2
-ORDER BY 1, 2;
-"""
-
-
-def build_observations_per_hour():
-    return (
-        barchart.Panel()
-        .title("Observations Per Hour Of Day By Species")
-        .id(4)
-        .grid_pos(GridPos(10, 24, 0, 10))
-        .datasource(postgres_ref())
-        .color_scheme(classic_palette())
-        .legend(default_legend().display_mode(LegendDisplayMode.TABLE))
-        .tooltip(multi_tooltip_desc())
-        .time_from("1d")
-        .with_target(
-            PostgresQueryBuilder()
-            .query(OBSERVATIONS_PER_HOUR_SQL)
-            .datasource(postgres_ref())
-            .format("time_series")
-        )
-    )
-
-
-OBSERVATIONS_PER_HOUR_MATRIX_SQL = """
-SELECT
-  ot.tag_value AS species,
-  EXTRACT(hour FROM o.recorded_on)::int AS hour_of_day,
-  COUNT(*)::double precision AS detections
 FROM observations o
 JOIN observation_tags ot ON ot.observation_id = o.id
 JOIN devices ON devices.id = o.device_id
@@ -123,32 +84,20 @@ ORDER BY 1, 2;
 """
 
 
-def build_observations_per_hour_matrix():
-
+def build_observations_per_hour():
     return (
-        table.Panel()
-        .title("Observations Per Species Per Hour Matrix")
-        .id(5)
-        .grid_pos(GridPos(12, 24, 0, 20))
+        statushistory.Panel()
+        .title("Observations Per Hour Of Day By Species")
+        .id(4)
+        .grid_pos(GridPos(10, 24, 0, 10))
         .datasource(postgres_ref())
-        .show_header(True)
-        .cell_height(TableCellHeight.SM)
-        .with_transformation(
-            DataTransformerConfig(
-                id_val="groupingToMatrix",
-                options={
-                    "columnField": "hour_of_day",
-                    "emptyValue": "0",
-                    "rowField": "species",
-                    "valueField": "detections",
-                },
-            )
-        )
+        .color_scheme(classic_palette())
+        .tooltip(multi_tooltip_desc())
         .with_target(
             PostgresQueryBuilder()
-            .query(OBSERVATIONS_PER_HOUR_MATRIX_SQL)
+            .query(OBSERVATIONS_PER_HOUR_SQL)
             .datasource(postgres_ref())
-            .format("table")
+            .format("time_series")
         )
     )
 
@@ -158,7 +107,7 @@ SELECT
     species_tags.tag_value AS species,
     devices.device_name AS device,
     observations.recorded_on,
-    COALESCE(species_tags.confidence_score, 0) AS confidence_score,
+    COALESCE(species_tags.confidence_score, 1) AS confidence_score,
     observations.classified_by AS model_name,
     observations.detection_score,
     observations.event_start_seconds,
@@ -282,7 +231,6 @@ def build_dashboard() -> dict:
         )
         .with_panel(build_observations_per_day())
         .with_panel(build_observations_per_hour())
-        .with_panel(build_observations_per_hour_matrix())
         .with_panel(build_observation_table())
     )
 

@@ -6,7 +6,12 @@ from grafana_foundation_sdk.models.common import (
     TableCellHeight,
     TimeZoneBrowser,
 )
-from grafana_foundation_sdk.models.dashboard import DashboardCursorSync, GridPos
+from grafana_foundation_sdk.models.dashboard import (
+    DashboardCursorSync,
+    GridPos,
+    Threshold,
+    ThresholdsMode,
+)
 
 from scripts.grafana_dashboards_common import json_from_builder, postgres_ref
 from scripts.grafana_sql_datasource import PostgresQueryBuilder
@@ -121,6 +126,11 @@ def build_deployment_map_panel():
                     .longitude("longitude")
                 )
             ]
+        )
+        .thresholds(
+            dashboard.ThresholdsConfig()
+            .mode(ThresholdsMode.ABSOLUTE)
+            .steps([Threshold(color="red"), Threshold(value=1, color="green")])
         )
         .view(geomap.MapViewConfig().all_layers(True).id("fit").lat(0).lon(0).zoom(1))
     )

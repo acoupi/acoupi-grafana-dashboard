@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from grafana_foundation_sdk.builders import dashboard, statetimeline, table
+from grafana_foundation_sdk.builders import (
+    dashboard,
+    statetimeline,
+    table,
+)
 from grafana_foundation_sdk.models.common import TableCellHeight, TimeZoneBrowser
 from grafana_foundation_sdk.models.dashboard import (
     DashboardCursorSync,
@@ -15,8 +19,7 @@ RECORDING_COVERAGE_SQL = """
 SELECT
   recordings.recorded_on AS time,
   recordings.recorded_on + make_interval(secs => recordings.duration_seconds) AS timeend,
-  devices.device_name AS device,
-  recordings.sample_rate_hz::text AS value
+  devices.device_name AS device
 FROM recordings
 JOIN devices ON devices.id = recordings.device_id
 WHERE recordings.recorded_on >= $__timeFrom()
@@ -32,32 +35,25 @@ def build_recording_coverage_panel():
         .id(1)
         .grid_pos(GridPos(h=14, w=24, x=0, y=0))
         .datasource(postgres_ref())
-        .with_transformation(
-            DataTransformerConfig(
-                id_val="organize",
-                options={
-                    "excludeByName": {},
-                    "indexByName": {"device": 0, "time": 1, "timeend": 2, "value": 3},
-                    "renameByName": {},
-                },
-            )
-        )
         .with_target(
             PostgresQueryBuilder()
             .query(RECORDING_COVERAGE_SQL)
             .datasource(postgres_ref())
             .format("table")
         )
+        .transformations(
+            [
+                DataTransformerConfig(
+                    id_val="partitionByValues",
+                    options={
+                        "keepFields": True,
+                        "fields": ["device"],
+                        "naming": {"asLabels": True},
+                    },
+                )
+            ]
+        )
     )
-    # built = json_from_builder(panel)
-    # built["options"] = {
-    #     "columnWidth": 0.9,
-    #     "legend": {"showLegend": False},
-    #     "mergeValues": False,
-    #     "rowHeight": 0.9,
-    #     "showValue": "auto",
-    #     "tooltip": {"mode": "single", "sort": "none"},
-    # }
 
 
 LATEST_RECORDINGS_SQL = """

@@ -111,20 +111,23 @@
   "version": 1,
   "panels": [
     {
-      "type": "timeseries",
+      "type": "status-history",
       "transparent": false,
       "transformations": [],
       "options": {
+        "rowHeight": 0.9,
+        "showValue": "auto",
         "legend": {
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom",
-          "showLegend": true,
+          "showLegend": false,
           "calcs": []
         },
         "tooltip": {
           "mode": "multi",
           "sort": "desc"
-        }
+        },
+        "colWidth": 0.9
       },
       "fieldConfig": {
         "defaults": {
@@ -161,30 +164,23 @@
       "repeatDirection": "h"
     },
     {
-      "type": "barchart",
+      "type": "status-history",
       "transparent": false,
       "transformations": [],
       "options": {
-        "orientation": "auto",
-        "xTickLabelRotation": 0,
-        "xTickLabelMaxLength": 0,
-        "stacking": "none",
+        "rowHeight": 0.9,
         "showValue": "auto",
-        "barWidth": 0.97,
-        "groupWidth": 0.7,
         "legend": {
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom",
-          "showLegend": true,
+          "showLegend": false,
           "calcs": []
         },
         "tooltip": {
           "mode": "multi",
           "sort": "desc"
         },
-        "fullHighlight": false,
-        "barRadius": 0,
-        "xTickLabelSpacing": 0
+        "colWidth": 0.9
       },
       "fieldConfig": {
         "defaults": {
@@ -198,7 +194,7 @@
       "targets": [
         {
           "refId": "A",
-          "rawSql": "\nSELECT\n  date_trunc('day', to_timestamp(0)) + make_interval(hours => EXTRACT(hour FROM o.recorded_on)::int) AS time,\n  ot.tag_value AS metric,\n  COUNT(*)::double precision AS value\nFROM observations o\nJOIN observation_tags ot ON ot.observation_id = o.id\nJOIN devices ON devices.id = o.device_id\nWHERE ot.tag_key = 'species'\n  AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}\n  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n  AND o.recorded_on::date = '${recording_day}'::date\nGROUP BY 1, 2\nORDER BY 1, 2;\n",
+          "rawSql": "\nSELECT\n  date_trunc('hour', o.recorded_on) AS time,\n  ot.tag_value AS metric,\n  COUNT(*)::double precision AS value\nFROM observations o\nJOIN observation_tags ot ON ot.observation_id = o.id\nJOIN devices ON devices.id = o.device_id\nWHERE ot.tag_key = 'species'\n  AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}\n  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n  AND o.recorded_on >= $__timeFrom()\n  AND o.recorded_on <= $__timeTo()\nGROUP BY 1, 2\nORDER BY 1, 2;\n",
           "rawQuery": true,
           "format": "time_series",
           "datasource": {
@@ -217,62 +213,6 @@
         "w": 24,
         "x": 0,
         "y": 10
-      },
-      "repeatDirection": "h",
-      "timeFrom": "1d"
-    },
-    {
-      "type": "table",
-      "transparent": false,
-      "transformations": [
-        {
-          "id": "groupingToMatrix",
-          "options": {
-            "columnField": "hour_of_day",
-            "emptyValue": "0",
-            "rowField": "species",
-            "valueField": "detections"
-          }
-        }
-      ],
-      "options": {
-        "frameIndex": 0,
-        "showHeader": true,
-        "showTypeIcons": false,
-        "footer": {
-          "show": false,
-          "reducer": [],
-          "countRows": false
-        },
-        "cellHeight": "sm"
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "id": 5,
-      "targets": [
-        {
-          "refId": "A",
-          "rawSql": "\nSELECT\n  ot.tag_value AS species,\n  EXTRACT(hour FROM o.recorded_on)::int AS hour_of_day,\n  COUNT(*)::double precision AS detections\nFROM observations o\nJOIN observation_tags ot ON ot.observation_id = o.id\nJOIN devices ON devices.id = o.device_id\nWHERE ot.tag_key = 'species'\n  AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}\n  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n  AND o.recorded_on >= $__timeFrom()\n  AND o.recorded_on <= $__timeTo()\nGROUP BY 1, 2\nORDER BY 1, 2;\n",
-          "rawQuery": true,
-          "format": "table",
-          "datasource": {
-            "type": "postgres",
-            "uid": "acoupi-postgres"
-          }
-        }
-      ],
-      "title": "Observations Per Species Per Hour Matrix",
-      "datasource": {
-        "type": "postgres",
-        "uid": "acoupi-postgres"
-      },
-      "gridPos": {
-        "h": 12,
-        "w": 24,
-        "x": 0,
-        "y": 20
       },
       "repeatDirection": "h"
     },
@@ -299,7 +239,7 @@
       "targets": [
         {
           "refId": "A",
-          "rawSql": "\nSELECT\n    species_tags.tag_value AS species,\n    devices.device_name AS device,\n    observations.recorded_on,\n    COALESCE(species_tags.confidence_score, 0) AS confidence_score,\n    observations.classified_by AS model_name,\n    observations.detection_score,\n    observations.event_start_seconds,\n    observations.event_end_seconds,\n    observations.frequency_low_hz,\n    observations.frequency_high_hz\nFROM observations\nJOIN observation_tags AS species_tags ON species_tags.observation_id = observations.id\nJOIN devices ON devices.id = observations.device_id\nWHERE species_tags.tag_key = 'species'\n    AND COALESCE(species_tags.confidence_score, 0) >= ${confidence_threshold}\n    AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n    AND observations.recorded_on >= $__timeFrom()\n    AND observations.recorded_on <= $__timeTo()\nORDER BY observations.recorded_on DESC\nLIMIT 500;\n",
+          "rawSql": "\nSELECT\n    species_tags.tag_value AS species,\n    devices.device_name AS device,\n    observations.recorded_on,\n    COALESCE(species_tags.confidence_score, 1) AS confidence_score,\n    observations.classified_by AS model_name,\n    observations.detection_score,\n    observations.event_start_seconds,\n    observations.event_end_seconds,\n    observations.frequency_low_hz,\n    observations.frequency_high_hz\nFROM observations\nJOIN observation_tags AS species_tags ON species_tags.observation_id = observations.id\nJOIN devices ON devices.id = observations.device_id\nWHERE species_tags.tag_key = 'species'\n    AND COALESCE(species_tags.confidence_score, 0) >= ${confidence_threshold}\n    AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n    AND observations.recorded_on >= $__timeFrom()\n    AND observations.recorded_on <= $__timeTo()\nORDER BY observations.recorded_on DESC\nLIMIT 500;\n",
           "rawQuery": true,
           "format": "table",
           "datasource": {
