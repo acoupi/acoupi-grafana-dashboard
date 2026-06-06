@@ -41,8 +41,8 @@ docker compose up --build
 
 Grafana now provisions two dashboards:
 
-- `Acoupi System Overview` for operational monitoring
-- `Acoupi Ecological Overview` for species and detection patterns
+- `Messages` for operational monitoring
+- `Observations` for species and detection patterns
 
 To include the optional MQTT Explorer UI:
 
@@ -124,18 +124,24 @@ Notes:
 
 ## Grafana dashboards
 
-The default Grafana provisioning includes two dashboards:
+The default Grafana provisioning includes these dashboards:
 
-### Acoupi System Overview
+### Messages
 
-Use this for operational monitoring:
+Use this for raw message flow and ingestion activity:
 
-- heartbeat status history by device
+- overall message volume over time
 - message activity by device
-- latest heartbeat per device
 - recent messages across all message types
 
-### Acoupi Ecological Overview
+### Health
+
+Use this for device heartbeat monitoring:
+
+- heartbeats by device
+- latest heartbeat per device
+
+### Observations
 
 Use this for ecological interpretation:
 
@@ -193,6 +199,7 @@ Useful overrides:
 uv run python scripts/send_test_heartbeat.py --topic acoupi/my-device --payload-device-id raspi-007
 uv run python scripts/send_test_detection.py --topic acoupi/my-device --model-name birdnet-v2
 uv run python scripts/generate_detection_dataset.py --publish --days 10 --recordings-per-day 24 --topic acoupi/my-device
+uv run python scripts/generate_detection_dataset.py --publish --topic acoupi/my-device --latitude -33.45 --longitude -70.66
 ```
 
 Expected behavior:
@@ -206,6 +213,8 @@ Expected behavior:
 The dataset generator is meant for dashboard design:
 
 - all generated recordings belong to the same deployment
+- deployment latitude/longitude are randomized by default and reproducible for a given `--seed`
+- deployment latitude/longitude can be set explicitly with `--latitude` and `--longitude`
 - recordings and message `created_on` timestamps are spread across earlier days
 - payloads are still published now, which simulates delayed delivery after poor connectivity
 - detections include species tags with varying confidence scores
@@ -224,6 +233,18 @@ Important columns:
 - `payload_text`: raw text for malformed JSON
 - `received_at`: server receive time
 - `event_timestamp`: payload timestamp when available
+
+The local database also maintains normalized tables for easier querying:
+
+- `devices`
+- `deployments`
+- `recordings`
+- `observations`
+- `observation_tags`
+
+These are populated alongside the raw `mqtt_messages` table during ingestion.
+
+If you recreate the PostgreSQL volume, Grafana dashboards will start empty until you publish new heartbeat and detection test messages again.
 
 ## Configuration
 

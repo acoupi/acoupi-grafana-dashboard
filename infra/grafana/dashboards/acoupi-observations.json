@@ -1,0 +1,313 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "acoupi-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "acoupi-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  date_trunc('day', o.recorded_on) AS time,\n  ot.tag_value AS metric,\n  COUNT(*)::double precision AS value\nFROM observations o\nJOIN observation_tags ot ON ot.observation_id = o.id\nJOIN devices ON devices.id = o.device_id\nWHERE ot.tag_key = 'species'\n  AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}\n  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n  AND o.recorded_on >= $__timeFrom()\n  AND o.recorded_on <= $__timeTo()\nGROUP BY 1, 2\nORDER BY 1, 2;",
+          "refId": "A"
+        }
+      ],
+      "title": "Observations Per Species Per Day (>= ${confidence_threshold})",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "acoupi-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "acoupi-postgres"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  date_trunc('day', to_timestamp(0)) + make_interval(hours => EXTRACT(hour FROM o.recorded_on)::int) AS time,\n  ot.tag_value AS metric,\n  COUNT(*)::double precision AS value\nFROM observations o\nJOIN observation_tags ot ON ot.observation_id = o.id\nJOIN devices ON devices.id = o.device_id\nWHERE ot.tag_key = 'species'\n  AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}\n  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n  AND o.recorded_on::date = '${recording_day}'::date\nGROUP BY 1, 2\nORDER BY 1, 2;",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": "1d",
+      "title": "Observations Per Hour Of Day By Species (>= ${confidence_threshold})",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "acoupi-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "id": 5,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "acoupi-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  ot.tag_value AS species,\n  EXTRACT(hour FROM o.recorded_on)::int AS hour_of_day,\n  COUNT(*)::double precision AS detections\nFROM observations o\nJOIN observation_tags ot ON ot.observation_id = o.id\nJOIN devices ON devices.id = o.device_id\nWHERE ot.tag_key = 'species'\n  AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}\n  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n  AND o.recorded_on >= $__timeFrom()\n  AND o.recorded_on <= $__timeTo()\nGROUP BY 1, 2\nORDER BY 1, 2;",
+          "refId": "A"
+        }
+      ],
+      "title": "Observations Per Species Per Hour Matrix (>= ${confidence_threshold})",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "hour_of_day",
+            "emptyValue": "0",
+            "rowField": "species",
+            "valueField": "detections"
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "acoupi-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 14,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
+      "id": 6,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "acoupi-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  species_tags.tag_value AS species,\n  devices.device_name AS device,\n  observations.recorded_on,\n  COALESCE(species_tags.confidence_score, 0) AS confidence_score,\n  observations.classified_by AS model_name,\n  observations.detection_score,\n  observations.event_start_seconds,\n  observations.event_end_seconds,\n  observations.frequency_low_hz,\n  observations.frequency_high_hz\nFROM observations\nJOIN observation_tags AS species_tags ON species_tags.observation_id = observations.id\nJOIN devices ON devices.id = observations.device_id\nWHERE species_tags.tag_key = 'species'\n  AND COALESCE(species_tags.confidence_score, 0) >= ${confidence_threshold}\n  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n  AND observations.recorded_on >= $__timeFrom()\n  AND observations.recorded_on <= $__timeTo()\nORDER BY observations.recorded_on DESC\nLIMIT 500;",
+          "refId": "A"
+        }
+      ],
+      "title": "Observation Records (>= ${confidence_threshold})",
+      "type": "table"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "acoupi",
+    "ecology"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "0.7",
+          "value": "0.7"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Confidence Threshold",
+        "multi": false,
+        "name": "confidence_threshold",
+        "options": [
+          {
+            "selected": false,
+            "text": "0.5",
+            "value": "0.5"
+          },
+          {
+            "selected": true,
+            "text": "0.7",
+            "value": "0.7"
+          },
+          {
+            "selected": false,
+            "text": "0.9",
+            "value": "0.9"
+          }
+        ],
+        "query": "0.5,0.7,0.9",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "__all"
+        },
+        "datasource": {
+          "type": "postgres",
+          "uid": "acoupi-postgres"
+        },
+        "definition": "SELECT '__all' AS __value, 'All' AS __text UNION ALL SELECT device_name AS __value, device_name AS __text FROM devices ORDER BY __text;",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Device",
+        "multi": false,
+        "name": "device_name",
+        "options": [],
+        "query": "SELECT '__all' AS __value, 'All' AS __text UNION ALL SELECT device_name AS __value, device_name AS __text FROM devices ORDER BY __text;",
+        "refresh": 1,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "",
+          "value": ""
+        },
+        "datasource": {
+          "type": "postgres",
+          "uid": "acoupi-postgres"
+        },
+        "definition": "SELECT DISTINCT to_char(recorded_on::date, 'YYYY-MM-DD') AS recording_day FROM observations ORDER BY recording_day DESC;",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Recording Day (Hourly Panel)",
+        "multi": false,
+        "name": "recording_day",
+        "options": [],
+        "query": "SELECT DISTINCT to_char(recorded_on::date, 'YYYY-MM-DD') AS recording_day FROM observations ORDER BY recording_day DESC;",
+        "refresh": 1,
+        "sort": 3,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Observations",
+  "uid": "acoupi-observations",
+  "version": 4,
+  "weekStart": ""
+}

@@ -46,6 +46,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="Deployment name shared by all generated recordings",
     )
     parser.add_argument(
+        "--latitude",
+        type=float,
+        default=None,
+        help="Deployment latitude override. Randomized by default.",
+    )
+    parser.add_argument(
+        "--longitude",
+        type=float,
+        default=None,
+        help="Deployment longitude override. Randomized by default.",
+    )
+    parser.add_argument(
         "--model-name",
         default="birdnet",
         help="Value for the detection payload name_model field",
@@ -140,6 +152,16 @@ def build_messages(args: argparse.Namespace) -> list[GeneratedMessage]:
     now = datetime.now(timezone.utc)
     deployment_started = now - timedelta(days=args.days + 14)
     deployment_id = str(uuid4())
+    deployment_latitude = (
+        args.latitude
+        if args.latitude is not None
+        else round(rng.uniform(-55.0, 70.0), 5)
+    )
+    deployment_longitude = (
+        args.longitude
+        if args.longitude is not None
+        else round(rng.uniform(-180.0, 180.0), 5)
+    )
     messages: list[GeneratedMessage] = []
 
     for day_offset in range(args.days):
@@ -182,8 +204,8 @@ def build_messages(args: argparse.Namespace) -> list[GeneratedMessage]:
                     "deployment": {
                         "id": deployment_id,
                         "name": args.deployment_name,
-                        "latitude": -33.45,
-                        "longitude": -70.66,
+                        "latitude": deployment_latitude,
+                        "longitude": deployment_longitude,
                         "started_on": isoformat_utc(deployment_started),
                         "ended_on": None,
                     },
@@ -271,6 +293,11 @@ def main() -> None:
             f"- recordings span: {first['recording']['created_on']} -> {last['recording']['created_on']}"
         )
         print(f"- messages created span: {first['created_on']} -> {last['created_on']}")
+        print(
+            "- deployment coordinates: "
+            f"{first['recording']['deployment']['latitude']}, "
+            f"{first['recording']['deployment']['longitude']}"
+        )
         print(f"- publish time: {isoformat_utc(datetime.now(timezone.utc))}")
 
 

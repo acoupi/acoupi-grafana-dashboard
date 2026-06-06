@@ -5,6 +5,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
+from uuid import UUID
 
 import paho.mqtt.client as mqtt
 from pydantic import ValidationError
@@ -12,7 +13,6 @@ from pydantic import ValidationError
 from acoupi_mqtt_server.config import Settings
 from acoupi_mqtt_server.database import Database
 from acoupi_mqtt_server.models import Heartbeat, ModelOutput
-
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +26,97 @@ class ClassifiedMessage:
     reject_reason: str | None
     payload: dict[str, Any] | None
     payload_text: str | None
+
+
+def safe_uuid(value: str | None) -> UUID | None:
+    if not value:
+        return None
+    return UUID(value)
+
+
+def extract_bit_depth(payload: dict[str, Any]) -> int | None:
+    value = payload.get("bit_depth")
+    if isinstance(value, int):
+        return value
+    return None
+
+
+def normalize_detection_payload(
+    database: Database,
+    message_id: int,
+    device_name: str,
+    payload: dict[str, Any],
+) -> None:
+    device_row_id = database.upsert_device(device_name, None)
+
+    deployment_payload = payload["recording"]["deployment"]
+    deployment_id = database.upsert_deployment(
+        {
+            "deployment_uuid": safe_uuid(deployment_payload["id"]),
+            "device_id": device_row_id,
+            "name": deployment_payload["name"],
+            "latitude": deployment_payload.get("latitude"),
+            "longitude": deployment_payload.get("longitude"),
+            "elevation": deployment_payload.get("elevation"),
+            "started_on": deployment_payload["started_on"],
+            "ended_on": deployment_payload.get("ended_on"),
+        }
+    )
+
+    recording_payload = payload["recording"]
+    recording_id = database.upsert_recording(
+        {
+            "recording_uuid": safe_uuid(recording_payload["id"]),
+            "deployment_id": deployment_id,
+            "device_id": device_row_id,
+            "message_id": message_id,
+            "recorded_on": recording_payload["created_on"],
+            "duration_seconds": recording_payload["duration"],
+            "sample_rate_hz": recording_payload["samplerate"],
+            "audio_channels": recording_payload.get("audio_channels"),
+            "bit_depth": extract_bit_depth(recording_payload),
+        }
+    )
+
+    for detection in payload.get("detections", []):
+        coordinates = None
+        if isinstance(detection.get("location"), dict):
+            raw_coordinates = detection["location"].get("coordinates")
+            if isinstance(raw_coordinates, list | tuple) and len(raw_coordinates) == 4:
+                coordinates = raw_coordinates
+
+        observation_id = database.upsert_observation(
+            {
+                "observation_uuid": safe_uuid(detection["id"]),
+                "recording_id": recording_id,
+                "deployment_id": deployment_id,
+                "device_id": device_row_id,
+                "message_id": message_id,
+                "recorded_on": recording_payload["created_on"],
+                "detection_score": detection.get("detection_score", 1.0),
+                "count": detection.get("count"),
+                "event_start_seconds": coordinates[0] if coordinates else None,
+                "event_end_seconds": coordinates[2] if coordinates else None,
+                "frequency_low_hz": coordinates[1] if coordinates else None,
+                "frequency_high_hz": coordinates[3] if coordinates else None,
+                "classified_by": payload.get("name_model"),
+            }
+        )
+
+        database.replace_observation_tags(
+            observation_id,
+            [
+                {
+                    "tag_key": predicted_tag["tag"]["key"],
+                    "tag_value": predicted_tag["tag"]["value"],
+                    "confidence_score": predicted_tag.get("confidence_score"),
+                }
+                for predicted_tag in detection.get("tags", [])
+                if isinstance(predicted_tag.get("tag"), dict)
+                and isinstance(predicted_tag["tag"].get("key"), str)
+                and isinstance(predicted_tag["tag"].get("value"), str)
+            ],
+        )
 
 
 def derive_device_id(topic: str, topic_prefix: str) -> str:
@@ -118,7 +209,8 @@ class MqttIngestService:
         self.settings = settings
         self.database = database
         self.client = mqtt.Client(
-            mqtt.CallbackAPIVersion.VERSION2, client_id=settings.mqtt_client_id
+            client_id=settings.mqtt_client_id,
+            callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
         )
         self.connected = False
 
@@ -191,7 +283,20 @@ class MqttIngestService:
         }
 
         try:
-            self.database.insert_message(record)
+            message_id = self.database.insert_message(record)
+
+            if classified.message_type == "heartbeat":
+                self.database.upsert_device(device_id, classified.payload_device_id)
+            elif (
+                classified.message_type == "detection"
+                and classified.payload is not None
+            ):
+                normalize_detection_payload(
+                    self.database,
+                    message_id=message_id,
+                    device_name=device_id,
+                    payload=classified.payload,
+                )
         except Exception:
             logger.exception("failed to persist MQTT message from topic %s", msg.topic)
             return
