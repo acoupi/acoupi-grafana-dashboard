@@ -7,15 +7,18 @@ from grafana_foundation_sdk.builders import (
     table,
 )
 from grafana_foundation_sdk.builders.common import ReduceDataOptions
+from grafana_foundation_sdk.builders.dashboard import FieldColor
 from grafana_foundation_sdk.models.common import (
+    BarGaugeDisplayMode,
     BarGaugeValueMode,
     TableCellHeight,
     TimeZoneBrowser,
-    VizOrientation, BarGaugeDisplayMode,
+    VizOrientation,
 )
 from grafana_foundation_sdk.models.dashboard import (
     DashboardCursorSync,
     DataSourceRef,
+    FieldColorModeId,
     GridPos,
     VariableHide,
     VariableOption,
@@ -53,10 +56,10 @@ def build_observations_per_day():
     return (
         statushistory.Panel()
         .title("Observations Per Species Per Day")
-        .id(3)
+        .id(2)
         .grid_pos(GridPos(h=10, w=24, x=0, y=0))
         .datasource(postgres_ref())
-        .color_scheme(classic_palette())
+        .color_scheme(FieldColor().mode(FieldColorModeId.CONTINUOUS_BL_YL_RD))
         .tooltip(multi_tooltip_desc())
         .with_target(
             PostgresQueryBuilder()
@@ -89,10 +92,10 @@ def build_observations_per_hour():
     return (
         statushistory.Panel()
         .title("Observations Per Hour Of Day By Species")
-        .id(4)
-        .grid_pos(GridPos(10, 24, 0, 10))
+        .id(3)
+        .grid_pos(GridPos(10, 24, 0, 0))
         .datasource(postgres_ref())
-        .color_scheme(classic_palette())
+        .color_scheme(FieldColor().mode(FieldColorModeId.CONTINUOUS_BL_YL_RD))
         .tooltip(multi_tooltip_desc())
         .with_target(
             PostgresQueryBuilder()
@@ -149,10 +152,10 @@ def build_detections_per_species_panel():
     return (
         bargauge.Panel()
         .title("Detections Per Species")
-        .id(5)
-        .grid_pos(GridPos(12, 24, 0, 20))
+        .id(1)
+        .grid_pos(GridPos(12, 24, 0, 0))
         .datasource(postgres_ref())
-        .color_scheme(classic_palette())
+        .color_scheme(FieldColor().mode(FieldColorModeId.CONTINUOUS_BL_YL_RD))
         .orientation(VizOrientation.HORIZONTAL)
         .show_unfilled(True)
         .value_mode(BarGaugeValueMode.COLOR)
@@ -172,9 +175,9 @@ def build_observation_table():
     return (
         table.Panel()
         .title("Observation Records")
-        .id(6)
-        .grid_pos(GridPos(14, 24, 0, 32 + 12))
-        .datasource(DataSourceRef(type_val="postgres", uid="acoupi-postgres"))
+        .id(4)
+        .grid_pos(GridPos(14, 24, 0, 0))
+        .datasource(postgres_ref())
         .show_header(True)
         .cell_height(TableCellHeight.SM)
         .with_target(
@@ -253,7 +256,6 @@ def build_dashboard() -> dict:
         .editable()
         .version(1)
         .with_variable(build_device_name_variable())
-        .with_variable(build_recording_day_variable())
         .with_variable(
             dashboard.CustomVariable("confidence_threshold")
             .id("confidence_threshold")
@@ -270,9 +272,9 @@ def build_dashboard() -> dict:
                 ]
             )
         )
+        .with_panel(build_detections_per_species_panel())
         .with_panel(build_observations_per_day())
         .with_panel(build_observations_per_hour())
-        .with_panel(build_detections_per_species_panel())
         .with_panel(build_observation_table())
     )
 

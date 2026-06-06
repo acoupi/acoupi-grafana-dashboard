@@ -32,32 +32,6 @@
         "auto_count": 30
       },
       {
-        "id": "recording_day",
-        "type": "query",
-        "name": "recording_day",
-        "hide": 0,
-        "skipUrlSync": false,
-        "label": "Recording Day (Hourly Panel)",
-        "query": "\nSELECT DISTINCT\n    to_char(recorded_on::date, 'YYYY-MM-DD') AS recording_day\nFROM observations\nORDER BY recording_day DESC;\n",
-        "datasource": {
-          "type": "postgres",
-          "uid": "acoupi-postgres"
-        },
-        "current": {
-          "text": "",
-          "value": "",
-          "selected": true
-        },
-        "multi": false,
-        "options": [],
-        "refresh": 1,
-        "sort": 3,
-        "includeAll": false,
-        "auto": false,
-        "auto_min": "10s",
-        "auto_count": 30
-      },
-      {
         "id": "confidence_threshold",
         "type": "custom",
         "name": "confidence_threshold",
@@ -111,52 +85,50 @@
   "version": 1,
   "panels": [
     {
-      "type": "status-history",
+      "type": "bargauge",
       "transparent": false,
       "transformations": [],
       "options": {
-        "rowHeight": 0.9,
-        "showValue": "auto",
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
+        "displayMode": "basic",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "minVizWidth": 0,
+        "reduceOptions": {
+          "calcs": [],
+          "values": true
         },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        },
-        "colWidth": 0.9
+        "minVizHeight": 10,
+        "orientation": "horizontal"
       },
       "fieldConfig": {
         "defaults": {
+          "min": 0,
           "color": {
-            "mode": "palette-classic"
+            "mode": "continuous-BlYlRd"
           }
         },
         "overrides": []
       },
-      "id": 3,
+      "id": 1,
       "targets": [
         {
           "refId": "A",
-          "rawSql": "\nSELECT\n  date_trunc('day', o.recorded_on) AS time,\n  ot.tag_value AS metric,\n  COUNT(*)::double precision AS value\nFROM observations o\nJOIN observation_tags ot ON ot.observation_id = o.id\nJOIN devices ON devices.id = o.device_id\nWHERE ot.tag_key = 'species'\n  AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}\n  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n  AND o.recorded_on >= $__timeFrom()\n  AND o.recorded_on <= $__timeTo()\nGROUP BY 1, 2\nORDER BY 1, 2;\n",
+          "rawSql": "\nSELECT\n    species_tags.tag_value AS species,\n    COUNT(*)::double precision AS value\nFROM observations\nJOIN observation_tags AS species_tags ON species_tags.observation_id = observations.id\nJOIN devices ON devices.id = observations.device_id\nWHERE species_tags.tag_key = 'species'\n    AND COALESCE(species_tags.confidence_score, 0) >= ${confidence_threshold}\n    AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n    AND observations.recorded_on >= $__timeFrom()\n    AND observations.recorded_on <= $__timeTo()\nGROUP BY species_tags.tag_value\nORDER BY value DESC, species ASC;\n",
           "rawQuery": true,
-          "format": "time_series",
+          "format": "table",
           "datasource": {
             "type": "postgres",
             "uid": "acoupi-postgres"
           }
         }
       ],
-      "title": "Observations Per Species Per Day",
+      "title": "Detections Per Species",
       "datasource": {
         "type": "postgres",
         "uid": "acoupi-postgres"
       },
       "gridPos": {
-        "h": 10,
+        "h": 12,
         "w": 24,
         "x": 0,
         "y": 0
@@ -185,12 +157,65 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
+            "mode": "continuous-BlYlRd"
           }
         },
         "overrides": []
       },
-      "id": 4,
+      "id": 2,
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "\nSELECT\n  date_trunc('day', o.recorded_on) AS time,\n  ot.tag_value AS metric,\n  COUNT(*)::double precision AS value\nFROM observations o\nJOIN observation_tags ot ON ot.observation_id = o.id\nJOIN devices ON devices.id = o.device_id\nWHERE ot.tag_key = 'species'\n  AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}\n  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n  AND o.recorded_on >= $__timeFrom()\n  AND o.recorded_on <= $__timeTo()\nGROUP BY 1, 2\nORDER BY 1, 2;\n",
+          "rawQuery": true,
+          "format": "time_series",
+          "datasource": {
+            "type": "postgres",
+            "uid": "acoupi-postgres"
+          }
+        }
+      ],
+      "title": "Observations Per Species Per Day",
+      "datasource": {
+        "type": "postgres",
+        "uid": "acoupi-postgres"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "repeatDirection": "h"
+    },
+    {
+      "type": "status-history",
+      "transparent": false,
+      "transformations": [],
+      "options": {
+        "rowHeight": 0.9,
+        "showValue": "auto",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "colWidth": 0.9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-BlYlRd"
+          }
+        },
+        "overrides": []
+      },
+      "id": 3,
       "targets": [
         {
           "refId": "A",
@@ -212,58 +237,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 10
-      },
-      "repeatDirection": "h"
-    },
-    {
-      "type": "bargauge",
-      "transparent": false,
-      "transformations": [],
-      "options": {
-        "displayMode": "basic",
-        "valueMode": "color",
-        "showUnfilled": true,
-        "minVizWidth": 0,
-        "reduceOptions": {
-          "calcs": [],
-          "values": true
-        },
-        "minVizHeight": 10,
-        "orientation": "horizontal"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "min": 0,
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "id": 5,
-      "targets": [
-        {
-          "refId": "A",
-          "rawSql": "\nSELECT\n    species_tags.tag_value AS species,\n    COUNT(*)::double precision AS value\nFROM observations\nJOIN observation_tags AS species_tags ON species_tags.observation_id = observations.id\nJOIN devices ON devices.id = observations.device_id\nWHERE species_tags.tag_key = 'species'\n    AND COALESCE(species_tags.confidence_score, 0) >= ${confidence_threshold}\n    AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n    AND observations.recorded_on >= $__timeFrom()\n    AND observations.recorded_on <= $__timeTo()\nGROUP BY species_tags.tag_value\nORDER BY value DESC, species ASC;\n",
-          "rawQuery": true,
-          "format": "table",
-          "datasource": {
-            "type": "postgres",
-            "uid": "acoupi-postgres"
-          }
-        }
-      ],
-      "title": "Detections Per Species",
-      "datasource": {
-        "type": "postgres",
-        "uid": "acoupi-postgres"
-      },
-      "gridPos": {
-        "h": 12,
-        "w": 24,
-        "x": 0,
-        "y": 20
+        "y": 22
       },
       "repeatDirection": "h"
     },
@@ -286,7 +260,7 @@
         "defaults": {},
         "overrides": []
       },
-      "id": 6,
+      "id": 4,
       "targets": [
         {
           "refId": "A",
@@ -308,7 +282,7 @@
         "h": 14,
         "w": 24,
         "x": 0,
-        "y": 44
+        "y": 32
       },
       "repeatDirection": "h"
     }
