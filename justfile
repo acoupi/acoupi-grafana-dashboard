@@ -1,4 +1,4 @@
-build:
+build: build-grafana
     docker compose --profile tools up --build
 
 up:
@@ -20,3 +20,9 @@ beat:
     uv run python scripts/send_test_heartbeat.py --topic acoupi/test-device-001
     uv run python scripts/send_test_heartbeat.py --topic acoupi/test-device-002
     uv run python scripts/send_test_heartbeat.py --topic acoupi/test-device-003
+
+build-grafana:
+    uv run python -m scripts.generate_grafana_dashboards
+
+restart-grafana:
+    docker compose restart grafana

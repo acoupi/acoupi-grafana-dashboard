@@ -1,60 +1,49 @@
 {
+  "style": "dark",
+  "editable": false,
+  "graphTooltip": 0,
+  "schemaVersion": 39,
+  "templating": {
+    "list": []
+  },
   "annotations": {
     "list": [
       {
-        "builtIn": 1,
+        "name": "Annotations & Alerts",
         "datasource": {
           "type": "grafana",
           "uid": "-- Grafana --"
         },
         "enable": true,
-        "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
-        "name": "Annotations & Alerts",
+        "hide": true,
         "type": "dashboard"
       }
     ]
   },
-  "editable": false,
+  "uid": "acoupi-deployments-v2",
+  "title": "Deployments V2",
+  "tags": [
+    "acoupi",
+    "deployments"
+  ],
+  "timezone": "browser",
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
   "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
+  "refresh": "30s",
+  "version": 1,
   "id": null,
   "links": [],
+  "timepicker": {},
+  "weekStart": "",
   "panels": [
     {
-      "datasource": {
-        "type": "postgres",
-        "uid": "acoupi-postgres"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 16,
-        "w": 24,
-        "x": 0,
-        "y": 0
-      },
-      "id": 1,
+      "type": "geomap",
+      "transparent": false,
+      "transformations": [],
       "options": {
         "basemap": {
           "config": {},
@@ -114,6 +103,41 @@
           "zoom": 1
         }
       },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "red"
+              },
+              {
+                "value": 1,
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 1,
+      "title": "Deployment Map",
+      "datasource": {
+        "type": "postgres",
+        "uid": "acoupi-postgres"
+      },
+      "gridPos": {
+        "h": 16,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "repeatDirection": "h",
       "targets": [
         {
           "datasource": {
@@ -125,26 +149,12 @@
           "rawSql": "WITH latest_deployments AS (\n  SELECT DISTINCT ON (devices.device_name)\n    deployments.id,\n    deployments.deployment_uuid,\n    deployments.name,\n    deployments.latitude,\n    deployments.longitude,\n    deployments.started_on,\n    deployments.ended_on,\n    devices.device_name,\n    devices.serial_number\n  FROM deployments\n  JOIN devices ON devices.id = deployments.device_id\n  WHERE deployments.latitude IS NOT NULL\n    AND deployments.longitude IS NOT NULL\n  ORDER BY devices.device_name, deployments.started_on DESC\n), heartbeat_status AS (\n  SELECT\n    mqtt_messages.device_id AS device_name,\n    MAX(mqtt_messages.received_at) FILTER (WHERE mqtt_messages.message_type = 'heartbeat') AS last_heartbeat_at\n  FROM mqtt_messages\n  GROUP BY mqtt_messages.device_id\n), recording_counts AS (\n  SELECT\n    recordings.deployment_id,\n    COUNT(*) AS recordings_count\n  FROM recordings\n  GROUP BY recordings.deployment_id\n)\nSELECT\n  latest_deployments.device_name,\n  latest_deployments.serial_number,\n  latest_deployments.name AS deployment_name,\n  latest_deployments.latitude,\n  latest_deployments.longitude,\n  latest_deployments.started_on,\n  latest_deployments.ended_on,\n  heartbeat_status.last_heartbeat_at,\n  CASE\n    WHEN heartbeat_status.last_heartbeat_at >= NOW() - INTERVAL '6 hours' THEN 1\n    ELSE 0\n  END AS healthy_last_6h,\n  COALESCE(recording_counts.recordings_count, 0) AS recordings_count\nFROM latest_deployments\nLEFT JOIN heartbeat_status ON heartbeat_status.device_name = latest_deployments.device_name\nLEFT JOIN recording_counts ON recording_counts.deployment_id = latest_deployments.id\nORDER BY latest_deployments.device_name;",
           "refId": "A"
         }
-      ],
-      "title": "Deployment Map",
-      "type": "geomap"
+      ]
     },
     {
-      "datasource": {
-        "type": "postgres",
-        "uid": "acoupi-postgres"
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 14,
-        "w": 24,
-        "x": 0,
-        "y": 16
-      },
-      "id": 2,
+      "type": "table",
+      "transparent": false,
+      "transformations": [],
       "options": {
         "cellHeight": "sm",
         "footer": {
@@ -157,6 +167,23 @@
         },
         "showHeader": true
       },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "id": 2,
+      "title": "Deployment Table",
+      "datasource": {
+        "type": "postgres",
+        "uid": "acoupi-postgres"
+      },
+      "gridPos": {
+        "h": 14,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "repeatDirection": "h",
       "targets": [
         {
           "datasource": {
@@ -168,29 +195,7 @@
           "rawSql": "WITH heartbeat_status AS (\n  SELECT\n    mqtt_messages.device_id AS device_name,\n    MAX(mqtt_messages.received_at) FILTER (WHERE mqtt_messages.message_type = 'heartbeat') AS last_heartbeat_at\n  FROM mqtt_messages\n  GROUP BY mqtt_messages.device_id\n), recording_counts AS (\n  SELECT\n    recordings.deployment_id,\n    COUNT(*) AS recordings_count\n  FROM recordings\n  GROUP BY recordings.deployment_id\n)\nSELECT\n  deployments.deployment_uuid,\n  devices.device_name,\n  devices.serial_number,\n  deployments.name AS deployment_name,\n  deployments.latitude,\n  deployments.longitude,\n  deployments.started_on,\n  deployments.ended_on,\n  heartbeat_status.last_heartbeat_at,\n  CASE\n    WHEN heartbeat_status.last_heartbeat_at >= NOW() - INTERVAL '6 hours' THEN true\n    ELSE false\n  END AS healthy_last_6h,\n  COALESCE(recording_counts.recordings_count, 0) AS recordings_count\nFROM deployments\nJOIN devices ON devices.id = deployments.device_id\nLEFT JOIN heartbeat_status ON heartbeat_status.device_name = devices.device_name\nLEFT JOIN recording_counts ON recording_counts.deployment_id = deployments.id\nORDER BY deployments.started_on DESC;",
           "refId": "A"
         }
-      ],
-      "title": "Deployment Table",
-      "type": "table"
+      ]
     }
-  ],
-  "refresh": "30s",
-  "schemaVersion": 39,
-  "style": "dark",
-  "tags": [
-    "acoupi",
-    "deployments"
-  ],
-  "templating": {
-    "list": []
-  },
-  "time": {
-    "from": "now-30d",
-    "to": "now"
-  },
-  "timepicker": {},
-  "timezone": "browser",
-  "title": "Deployments",
-  "uid": "acoupi-deployments",
-  "version": 1,
-  "weekStart": ""
+  ]
 }
