@@ -12,6 +12,7 @@ dependencies = [
     "pydantic==2.11.5",
     "pydantic-settings==2.9.1",
     "uvicorn[standard]==0.34.3",
+    "grafana-foundation-sdk>=1769699998!10.1.0",
 ]
 
 [build-system]

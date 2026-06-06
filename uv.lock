@@ -8,6 +8,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
+    { name = "grafana-foundation-sdk" },
     { name = "paho-mqtt" },
     { name = "psycopg", extra = ["binary"] },
     { name = "psycopg-pool" },
@@ -19,6 +20,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = "==0.115.12" },
+    { name = "grafana-foundation-sdk", specifier = ">=1769699998!10.1.0" },
     { name = "paho-mqtt", specifier = "==2.1.0" },
     { name = "psycopg", extras = ["binary"], specifier = "==3.2.9" },
     { name = "psycopg-pool", specifier = "==3.2.2" },
@@ -82,6 +84,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f4/55/ae499352d82338331ca1e28c7f4a63bfd09479b16395dce38cf50a39e2c2/fastapi-0.115.12.tar.gz", hash = "sha256:1e2c2a2646905f9e83d32f04a3f86aff4a286669c6c950ca95b5fd68c2602681", size = 295236, upload-time = "2025-03-23T22:55:43.822Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/50/b3/b51f09c2ba432a576fe63758bddc81f78f0c6309d9e5c10d194313bf021e/fastapi-0.115.12-py3-none-any.whl", hash = "sha256:e94613d6c05e27be7ffebdd6ea5f388112e5e430c8f7d6494a9d1d88d43e814d", size = 95164, upload-time = "2025-03-23T22:55:42.101Z" },
+]
+
+[[package]]
+name = "grafana-foundation-sdk"
+version = "1769699998!10.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/40/16/ce146db5395857ddc19f71f7b7b6bbe76689f5085467ddc93cbd638ef6f3/grafana_foundation_sdk-1769699998!10.1.0.tar.gz", hash = "sha256:8ecfb7dc8b66fc5cbdbf7ea48dc19169aed03e698ba490f1001bc501a194c5c7", size = 410531, upload-time = "2026-01-29T15:39:41.171Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/17/3b/49dd4a2137dd193b7c77a034f077c370119ecee9cb45fd0b819023d19bad/grafana_foundation_sdk-1769699998!10.1.0-py3-none-any.whl", hash = "sha256:d131ffe49057fb669ba31ce7e28a303c96b3aecf4332b20de33cfa55110d498c", size = 318469, upload-time = "2026-01-29T15:39:40.08Z" },
 ]
 
 [[package]]
