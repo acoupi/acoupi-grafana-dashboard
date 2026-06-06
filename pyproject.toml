@@ -1,0 +1,22 @@
+[project]
+name = "acoupi-mqtt-server"
+version = "0.1.0"
+description = "Minimal MQTT ingestion platform for Acoupi devices"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi==0.115.12",
+    "paho-mqtt==2.1.0",
+    "psycopg[binary]==3.2.9",
+    "psycopg-pool==3.2.2",
+    "pydantic==2.11.5",
+    "pydantic-settings==2.9.1",
+    "uvicorn[standard]==0.34.3",
+]
+
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/acoupi_mqtt_server"]

@@ -1,0 +1,100 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: acoupi-mosquitto
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-log:/mosquitto/log
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16
+    container_name: acoupi-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-acoupi}
+      POSTGRES_USER: ${POSTGRES_USER:-acoupi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-acoupi}
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-acoupi} -d ${POSTGRES_DB:-acoupi}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    restart: unless-stopped
+
+  ingest:
+    build:
+      context: .
+    container_name: acoupi-ingest
+    depends_on:
+      mosquitto:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    environment:
+      MQTT_HOST: mosquitto
+      MQTT_PORT: ${MQTT_PORT:-1883}
+      MQTT_SUBSCRIBE_TOPIC: ${MQTT_SUBSCRIBE_TOPIC:-#}
+      MQTT_CLIENT_ID: ${MQTT_CLIENT_ID:-acoupi-ingest}
+      MQTT_USERNAME: ${MQTT_USERNAME:-}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-}
+      DEVICE_TOPIC_PREFIX: ${DEVICE_TOPIC_PREFIX:-acoupi/}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-acoupi}:${POSTGRES_PASSWORD:-acoupi}@postgres:5432/${POSTGRES_DB:-acoupi}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: acoupi-grafana
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GRAFANA_DATABASE_HOST: postgres:5432
+      GRAFANA_DATABASE_NAME: ${POSTGRES_DB:-acoupi}
+      GRAFANA_DATABASE_USER: ${POSTGRES_USER:-acoupi}
+      GRAFANA_DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-acoupi}
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    restart: unless-stopped
+
+  mqtt-explorer:
+    image: ghcr.io/thomasnordquist/mqtt-explorer:latest
+    container_name: acoupi-mqtt-explorer
+    profiles:
+      - tools
+    depends_on:
+      mosquitto:
+        condition: service_started
+    environment:
+      MQTT_EXPLORER_USERNAME: ${MQTT_EXPLORER_USERNAME:-admin}
+      MQTT_EXPLORER_PASSWORD: ${MQTT_EXPLORER_PASSWORD:-admin}
+      PORT: 3000
+    ports:
+      - "3001:3000"
+    volumes:
+      - mqtt-explorer-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  mosquitto-data:
+  mosquitto-log:
+  postgres-data:
+  grafana-data:
+  mqtt-explorer-data:
