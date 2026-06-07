@@ -65,6 +65,7 @@ def build_total_devices_panel() -> stat.Panel:
     return (
         stat.Panel()
         .title("Devices")
+        .description("Shows the total number of known devices.")
         .id(10)
         .grid_pos(GridPos(h=4, w=12, x=0, y=0))
         .datasource(postgres_ref())
@@ -155,6 +156,7 @@ def build_device_health_card_panel() -> table.Panel:
     return (
         table.Panel()
         .title("${device_card}")
+        .description("Shows health status and last heartbeat for one device.")
         .id(12)
         .grid_pos(GridPos(h=5, w=6, x=0, y=24))
         .datasource(postgres_ref())
@@ -208,6 +210,7 @@ def build_unhealthy_devices_panel() -> stat.Panel:
     return (
         stat.Panel()
         .title("Unhealthy Devices")
+        .description("Shows devices missing a heartbeat for more than six hours.")
         .id(11)
         .grid_pos(GridPos(h=4, w=12, x=12, y=0))
         .datasource(postgres_ref())
@@ -241,6 +244,7 @@ def build_heartbeats_by_device_panel() -> timeseries.Panel:
     return (
         timeseries.Panel()
         .title("Heartbeats By Device")
+        .description("Shows accepted heartbeat activity for each device over time.")
         .id(1)
         .grid_pos(GridPos(h=8, w=24, x=0, y=4))
         .datasource(postgres_ref())
@@ -281,6 +285,7 @@ def build_latest_heartbeat_per_device_panel() -> table.Panel:
     return (
         table.Panel()
         .title("Latest Heartbeat Per Device")
+        .description("Lists the latest accepted heartbeat received from each device.")
         .id(2)
         .grid_pos(GridPos(h=12, w=24, x=0, y=12))
         .datasource(postgres_ref())

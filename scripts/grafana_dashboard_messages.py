@@ -32,6 +32,7 @@ def build_messages_over_time_panel() -> timeseries.Panel:
     return (
         timeseries.Panel()
         .title("Messages Over Time")
+        .description("Shows total MQTT messages received over time.")
         .id(1)
         .grid_pos(GridPos(h=8, w=24, x=0, y=0))
         .datasource(postgres_ref())
@@ -69,6 +70,7 @@ def build_message_activity_by_device_panel() -> timeseries.Panel:
     return (
         timeseries.Panel()
         .title("Message Activity By Device")
+        .description("Shows when each device sent MQTT messages.")
         .id(3)
         .grid_pos(GridPos(h=8, w=24, x=0, y=8))
         .datasource(postgres_ref())
@@ -103,6 +105,7 @@ def build_recent_messages_panel() -> table.Panel:
     return (
         table.Panel()
         .title("Recent Messages")
+        .description("Lists the most recently ingested MQTT messages.")
         .id(5)
         .grid_pos(GridPos(h=12, w=24, x=0, y=16))
         .datasource(postgres_ref())

@@ -56,6 +56,7 @@ def build_observations_per_day():
     return (
         statushistory.Panel()
         .title("Observations Per Species Per Day")
+        .description("Shows daily detection counts for each species.")
         .id(2)
         .grid_pos(GridPos(h=10, w=24, x=0, y=0))
         .datasource(postgres_ref())
@@ -92,6 +93,7 @@ def build_observations_per_hour():
     return (
         statushistory.Panel()
         .title("Observations Per Hour Of Day By Species")
+        .description("Shows hourly detection counts for each species.")
         .id(3)
         .grid_pos(GridPos(10, 24, 0, 0))
         .datasource(postgres_ref())
@@ -152,6 +154,7 @@ def build_detections_per_species_panel():
     return (
         bargauge.Panel()
         .title("Detections Per Species")
+        .description("Ranks species by total detections in the selected time range.")
         .id(1)
         .grid_pos(GridPos(12, 24, 0, 0))
         .datasource(postgres_ref())
@@ -192,6 +195,9 @@ def build_confidence_score_panel():
     return (
         heatmap.Panel()
         .title("Confidence Score Heatmap")
+        .description(
+            "Shows the distribution of observation confidence scores over time."
+        )
         .id(4)
         .grid_pos(GridPos(14, 24, 0, 0))
         .datasource(postgres_ref())
@@ -214,6 +220,7 @@ def build_observation_table():
     return (
         table.Panel()
         .title("Observation Records")
+        .description("Lists recent observation records and their detection metadata.")
         .id(5)
         .grid_pos(GridPos(14, 24, 0, 0))
         .datasource(postgres_ref())

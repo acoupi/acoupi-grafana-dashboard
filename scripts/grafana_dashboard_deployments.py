@@ -71,6 +71,7 @@ def build_deployment_map_panel():
     return (
         geomap.Panel()
         .title("Deployment Map")
+        .description("Shows device deployments on a map with recent health status.")
         .id(1)
         .grid_pos(GridPos(h=16, w=24, x=0, y=0))
         .datasource(postgres_ref())
@@ -177,6 +178,9 @@ def build_deployment_table_panel() -> table.Panel:
     return (
         table.Panel()
         .title("Deployment Table")
+        .description(
+            "Lists deployments, device details, heartbeat status, and recording counts."
+        )
         .id(2)
         .grid_pos(GridPos(h=14, w=24, x=0, y=16))
         .datasource(postgres_ref())

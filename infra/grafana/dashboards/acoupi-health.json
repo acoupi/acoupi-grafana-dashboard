@@ -84,6 +84,7 @@
         }
       ],
       "title": "Devices",
+      "description": "Shows the total number of known devices.",
       "datasource": {
         "type": "postgres",
         "uid": "acoupi-postgres"
@@ -153,6 +154,7 @@
         }
       ],
       "title": "Unhealthy Devices",
+      "description": "Shows devices missing a heartbeat for more than six hours.",
       "datasource": {
         "type": "postgres",
         "uid": "acoupi-postgres"
@@ -212,6 +214,7 @@
         }
       ],
       "title": "Heartbeats By Device",
+      "description": "Shows accepted heartbeat activity for each device over time.",
       "datasource": {
         "type": "postgres",
         "uid": "acoupi-postgres"
@@ -257,6 +260,7 @@
         }
       ],
       "title": "Latest Heartbeat Per Device",
+      "description": "Lists the latest accepted heartbeat received from each device.",
       "datasource": {
         "type": "postgres",
         "uid": "acoupi-postgres"
@@ -359,6 +363,7 @@
         }
       ],
       "title": "${device_card}",
+      "description": "Shows health status and last heartbeat for one device.",
       "datasource": {
         "type": "postgres",
         "uid": "acoupi-postgres"

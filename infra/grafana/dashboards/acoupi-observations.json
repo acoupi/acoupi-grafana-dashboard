@@ -149,6 +149,7 @@
         }
       ],
       "title": "Detections Per Species",
+      "description": "Ranks species by total detections in the selected time range.",
       "datasource": {
         "type": "postgres",
         "uid": "acoupi-postgres"
@@ -202,6 +203,7 @@
         }
       ],
       "title": "Observations Per Species Per Day",
+      "description": "Shows daily detection counts for each species.",
       "datasource": {
         "type": "postgres",
         "uid": "acoupi-postgres"
@@ -255,6 +257,7 @@
         }
       ],
       "title": "Observations Per Hour Of Day By Species",
+      "description": "Shows hourly detection counts for each species.",
       "datasource": {
         "type": "postgres",
         "uid": "acoupi-postgres"
@@ -317,6 +320,7 @@
         }
       ],
       "title": "Confidence Score Heatmap",
+      "description": "Shows the distribution of observation confidence scores over time.",
       "datasource": {
         "type": "postgres",
         "uid": "acoupi-postgres"
@@ -362,6 +366,7 @@
         }
       ],
       "title": "Observation Records",
+      "description": "Lists recent observation records and their detection metadata.",
       "datasource": {
         "type": "postgres",
         "uid": "acoupi-postgres"

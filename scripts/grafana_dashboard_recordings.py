@@ -32,6 +32,9 @@ def build_recording_coverage_panel():
     return (
         statetimeline.Panel()
         .title("Recording Coverage Per Device")
+        .description(
+            "Shows when each device produced recordings over the selected time range."
+        )
         .id(1)
         .grid_pos(GridPos(h=14, w=24, x=0, y=0))
         .datasource(postgres_ref())
@@ -76,6 +79,7 @@ def build_latest_recordings_panel() -> table.Panel:
     return (
         table.Panel()
         .title("Latest Recordings")
+        .description("Lists the most recent recordings and their metadata.")
         .id(2)
         .grid_pos(GridPos(h=12, w=24, x=0, y=14))
         .datasource(postgres_ref())

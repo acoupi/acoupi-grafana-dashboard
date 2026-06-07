@@ -58,6 +58,7 @@
         }
       ],
       "title": "Messages Over Time",
+      "description": "Shows total MQTT messages received over time.",
       "datasource": {
         "type": "postgres",
         "uid": "acoupi-postgres"
@@ -117,6 +118,7 @@
         }
       ],
       "title": "Message Activity By Device",
+      "description": "Shows when each device sent MQTT messages.",
       "datasource": {
         "type": "postgres",
         "uid": "acoupi-postgres"
@@ -162,6 +164,7 @@
         }
       ],
       "title": "Recent Messages",
+      "description": "Lists the most recently ingested MQTT messages.",
       "datasource": {
         "type": "postgres",
         "uid": "acoupi-postgres"
