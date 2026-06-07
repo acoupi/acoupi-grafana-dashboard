@@ -45,7 +45,6 @@ JOIN devices ON devices.id = o.device_id
 WHERE ot.tag_key = '${tag_key}'
   AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}
   AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')
-  AND ('__all' in (${tag_value}) OR ot.tag_value IN (${tag_value}))
   AND o.recorded_on >= $__timeFrom()
   AND o.recorded_on <= $__timeTo()
 GROUP BY 1, 2
@@ -83,7 +82,6 @@ JOIN devices ON devices.id = o.device_id
 WHERE ot.tag_key = '${tag_key}'
   AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}
   AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')
-  AND ('__all' in (${tag_value}) OR ot.tag_value IN (${tag_value}))
   AND o.recorded_on >= $__timeFrom()
   AND o.recorded_on <= $__timeTo()
 GROUP BY 1, 2
@@ -129,7 +127,6 @@ JOIN devices ON devices.id = observations.device_id
 WHERE selected_tags.tag_key = '${tag_key}'
     AND COALESCE(selected_tags.confidence_score, 0) >= ${confidence_threshold}
     AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')
-    AND ('__all' in (${tag_value}) OR selected_tags.tag_value IN (${tag_value}))
     AND observations.recorded_on >= $__timeFrom()
     AND observations.recorded_on <= $__timeTo()
 ORDER BY observations.recorded_on DESC
@@ -145,9 +142,8 @@ FROM observations
 JOIN observation_tags AS selected_tags ON selected_tags.observation_id = observations.id
 JOIN devices ON devices.id = observations.device_id
 WHERE selected_tags.tag_key = '${tag_key}'
-    AND COALESCE(selected_tags.confidence_score, 0) >= ${confidence_threshold}
+    AND COALESCE(selected_tags.confidence_score, 1) >= ${confidence_threshold}
     AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')
-    AND ('__all' in (${tag_value}) OR selected_tags.tag_value IN (${tag_value}))
     AND observations.recorded_on >= $__timeFrom()
     AND observations.recorded_on <= $__timeTo()
 GROUP BY selected_tags.tag_value

@@ -133,7 +133,14 @@ def build_deployment_map_panel():
             .mode(ThresholdsMode.ABSOLUTE)
             .steps([Threshold(color="red"), Threshold(value=1, color="green")])
         )
-        .view(geomap.MapViewConfig().all_layers(True).id("fit").lat(0).lon(0).zoom(1))
+        .view(
+            geomap.MapViewConfig()
+            .all_layers(False)
+            .layer("Deployments")
+            .id("fit")
+            .zoom(8)
+            .max_zoom(14)
+        )
     )
 
 

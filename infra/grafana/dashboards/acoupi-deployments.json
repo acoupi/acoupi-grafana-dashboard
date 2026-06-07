@@ -29,8 +29,10 @@
           "id": "fit",
           "lat": 0,
           "lon": 0,
-          "zoom": 1,
-          "allLayers": true
+          "zoom": 8,
+          "maxZoom": 14,
+          "allLayers": false,
+          "layer": "Deployments"
         },
         "controls": {
           "showZoom": true,

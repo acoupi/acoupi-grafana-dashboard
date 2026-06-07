@@ -165,7 +165,7 @@
       "targets": [
         {
           "refId": "A",
-          "rawSql": "\nSELECT\n    selected_tags.tag_value AS tag_value,\n    COUNT(*)::double precision AS value\nFROM observations\nJOIN observation_tags AS selected_tags ON selected_tags.observation_id = observations.id\nJOIN devices ON devices.id = observations.device_id\nWHERE selected_tags.tag_key = '${tag_key}'\n    AND COALESCE(selected_tags.confidence_score, 0) >= ${confidence_threshold}\n    AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n    AND ('__all' in (${tag_value}) OR selected_tags.tag_value IN (${tag_value}))\n    AND observations.recorded_on >= $__timeFrom()\n    AND observations.recorded_on <= $__timeTo()\nGROUP BY selected_tags.tag_value\nORDER BY value DESC, tag_value ASC;\n",
+          "rawSql": "\nSELECT\n    selected_tags.tag_value AS tag_value,\n    COUNT(*)::double precision AS value\nFROM observations\nJOIN observation_tags AS selected_tags ON selected_tags.observation_id = observations.id\nJOIN devices ON devices.id = observations.device_id\nWHERE selected_tags.tag_key = '${tag_key}'\n    AND COALESCE(selected_tags.confidence_score, 1) >= ${confidence_threshold}\n    AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n    AND observations.recorded_on >= $__timeFrom()\n    AND observations.recorded_on <= $__timeTo()\nGROUP BY selected_tags.tag_value\nORDER BY value DESC, tag_value ASC;\n",
           "rawQuery": true,
           "format": "table",
           "datasource": {
@@ -219,7 +219,7 @@
       "targets": [
         {
           "refId": "A",
-          "rawSql": "\nSELECT\n  date_trunc('day', o.recorded_on) AS time,\n  ot.tag_value AS metric,\n  COUNT(*)::double precision AS value\nFROM observations o\nJOIN observation_tags ot ON ot.observation_id = o.id\nJOIN devices ON devices.id = o.device_id\nWHERE ot.tag_key = '${tag_key}'\n  AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}\n  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n  AND ('__all' in (${tag_value}) OR ot.tag_value IN (${tag_value}))\n  AND o.recorded_on >= $__timeFrom()\n  AND o.recorded_on <= $__timeTo()\nGROUP BY 1, 2\nORDER BY 1, 2;\n",
+          "rawSql": "\nSELECT\n  date_trunc('day', o.recorded_on) AS time,\n  ot.tag_value AS metric,\n  COUNT(*)::double precision AS value\nFROM observations o\nJOIN observation_tags ot ON ot.observation_id = o.id\nJOIN devices ON devices.id = o.device_id\nWHERE ot.tag_key = '${tag_key}'\n  AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}\n  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n  AND o.recorded_on >= $__timeFrom()\n  AND o.recorded_on <= $__timeTo()\nGROUP BY 1, 2\nORDER BY 1, 2;\n",
           "rawQuery": true,
           "format": "time_series",
           "datasource": {
@@ -273,7 +273,7 @@
       "targets": [
         {
           "refId": "A",
-          "rawSql": "\nSELECT\n  date_trunc('hour', o.recorded_on) AS time,\n  ot.tag_value AS metric,\n  COUNT(*)::double precision AS value\nFROM observations o\nJOIN observation_tags ot ON ot.observation_id = o.id\nJOIN devices ON devices.id = o.device_id\nWHERE ot.tag_key = '${tag_key}'\n  AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}\n  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n  AND ('__all' in (${tag_value}) OR ot.tag_value IN (${tag_value}))\n  AND o.recorded_on >= $__timeFrom()\n  AND o.recorded_on <= $__timeTo()\nGROUP BY 1, 2\nORDER BY 1, 2;\n",
+          "rawSql": "\nSELECT\n  date_trunc('hour', o.recorded_on) AS time,\n  ot.tag_value AS metric,\n  COUNT(*)::double precision AS value\nFROM observations o\nJOIN observation_tags ot ON ot.observation_id = o.id\nJOIN devices ON devices.id = o.device_id\nWHERE ot.tag_key = '${tag_key}'\n  AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}\n  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n  AND o.recorded_on >= $__timeFrom()\n  AND o.recorded_on <= $__timeTo()\nGROUP BY 1, 2\nORDER BY 1, 2;\n",
           "rawQuery": true,
           "format": "time_series",
           "datasource": {
@@ -382,7 +382,7 @@
       "targets": [
         {
           "refId": "A",
-          "rawSql": "\nSELECT\n    selected_tags.tag_key,\n    selected_tags.tag_value,\n    devices.device_name AS device,\n    observations.recorded_on,\n    COALESCE(selected_tags.confidence_score, 1) AS confidence_score,\n    observations.classified_by AS model_name,\n    observations.detection_score,\n    observations.event_start_seconds,\n    observations.event_end_seconds,\n    observations.frequency_low_hz,\n    observations.frequency_high_hz\nFROM observations\nJOIN observation_tags AS selected_tags ON selected_tags.observation_id = observations.id\nJOIN devices ON devices.id = observations.device_id\nWHERE selected_tags.tag_key = '${tag_key}'\n    AND COALESCE(selected_tags.confidence_score, 0) >= ${confidence_threshold}\n    AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n    AND ('__all' in (${tag_value}) OR selected_tags.tag_value IN (${tag_value}))\n    AND observations.recorded_on >= $__timeFrom()\n    AND observations.recorded_on <= $__timeTo()\nORDER BY observations.recorded_on DESC\nLIMIT 500;\n",
+          "rawSql": "\nSELECT\n    selected_tags.tag_key,\n    selected_tags.tag_value,\n    devices.device_name AS device,\n    observations.recorded_on,\n    COALESCE(selected_tags.confidence_score, 1) AS confidence_score,\n    observations.classified_by AS model_name,\n    observations.detection_score,\n    observations.event_start_seconds,\n    observations.event_end_seconds,\n    observations.frequency_low_hz,\n    observations.frequency_high_hz\nFROM observations\nJOIN observation_tags AS selected_tags ON selected_tags.observation_id = observations.id\nJOIN devices ON devices.id = observations.device_id\nWHERE selected_tags.tag_key = '${tag_key}'\n    AND COALESCE(selected_tags.confidence_score, 0) >= ${confidence_threshold}\n    AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n    AND observations.recorded_on >= $__timeFrom()\n    AND observations.recorded_on <= $__timeTo()\nORDER BY observations.recorded_on DESC\nLIMIT 500;\n",
           "rawQuery": true,
           "format": "table",
           "datasource": {
