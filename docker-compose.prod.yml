@@ -1,0 +1,49 @@
+services:
+  reverse-proxy:
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      GRAFANA_DOMAIN: ${GRAFANA_DOMAIN:?set GRAFANA_DOMAIN}
+      MQTT_DOMAIN: ${MQTT_DOMAIN:?set MQTT_DOMAIN}
+
+  mosquitto:
+    ports: []
+    environment:
+      MQTT_ALLOW_ANONYMOUS: ${MQTT_ALLOW_ANONYMOUS:-false}
+      MQTT_USERNAME: ${MQTT_USERNAME:?set MQTT_USERNAME in production}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:?set MQTT_PASSWORD in production}
+    volumes:
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-log:/mosquitto/log
+      - ./services/mosquitto/production.conf:/mosquitto/config/conf.d/production.conf
+
+  postgres:
+    ports: []
+
+  ingest:
+    ports: []
+    environment:
+      MQTT_USERNAME: ${MQTT_USERNAME:?set MQTT_USERNAME in production}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:?set MQTT_PASSWORD in production}
+
+  grafana:
+    ports: []
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?set GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD}
+      GRAFANA_DATABASE_HOST: postgres:5432
+      GRAFANA_DATABASE_NAME: ${POSTGRES_DB}
+      GRAFANA_DATABASE_USER: ${POSTGRES_USER}
+      GRAFANA_DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      GF_SERVER_ROOT_URL: https://${GRAFANA_DOMAIN}
+      GF_SERVER_DOMAIN: ${GRAFANA_DOMAIN}
+      GF_SECURITY_COOKIE_SECURE: "false"
+      GF_SECURITY_STRICT_TRANSPORT_SECURITY: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      TZ: ${TZ:-Europe/London}
+
+  mqtt-explorer:
+    profiles:
+      - disabled

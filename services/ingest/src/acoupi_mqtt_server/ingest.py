@@ -208,7 +208,10 @@ class MqttIngestService:
     def __init__(self, settings: Settings, database: Database) -> None:
         self.settings = settings
         self.database = database
-        self.client = mqtt.Client(client_id=settings.mqtt_client_id)
+        self.client = mqtt.Client(
+            client_id=settings.mqtt_client_id,
+            callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+        )
         self.connected = False
 
         if settings.mqtt_username:

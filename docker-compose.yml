@@ -1,4 +1,25 @@
 services:
+  reverse-proxy:
+    build:
+      context: services/caddy/
+      dockerfile: Dockerfile
+    container_name: acoupi-caddy
+    depends_on:
+      grafana:
+        condition: service_started
+      mosquitto:
+        condition: service_started
+    ports:
+      - "8888:8888"
+      - "9999:9999"
+    environment:
+      GRAFANA_DOMAIN: ${GRAFANA_DOMAIN:-localhost:8888}
+      MQTT_DOMAIN: ${MQTT_DOMAIN:-localhost:9999}
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+
   mosquitto:
     build:
       context: services/mosquitto/
@@ -6,6 +27,7 @@ services:
     container_name: acoupi-mosquitto
     ports:
       - "1883:1883"
+      - "9001:9001"
     volumes:
       - mosquitto-data:/mosquitto/data
       - mosquitto-log:/mosquitto/log
@@ -24,7 +46,11 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-acoupi} -d ${POSTGRES_DB:-acoupi}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-acoupi} -d ${POSTGRES_DB:-acoupi}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -72,6 +98,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      GF_SERVER_ROOT_URL: http://localhost:8888
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
       GRAFANA_DATABASE_HOST: postgres:5432
@@ -111,3 +138,5 @@ volumes:
   postgres-data:
   grafana-data:
   mqtt-explorer-data:
+  caddy-data:
+  caddy-config:

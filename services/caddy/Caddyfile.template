@@ -1,0 +1,11 @@
+http://${GRAFANA_DOMAIN} {
+    encode gzip
+
+    reverse_proxy grafana:3000 {
+        flush_interval -1
+    }
+}
+
+http://${MQTT_DOMAIN} {
+    reverse_proxy mosquitto:9001
+}

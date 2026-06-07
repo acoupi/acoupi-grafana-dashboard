@@ -40,6 +40,12 @@ Start the background services:
 docker compose up --build
 ```
 
+For a production-style VPS deployment, use the production overlay:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
 ### 3. Access the Dashboards
 
 Once the containers finish loading, open a web browser to view the platform:
@@ -90,6 +96,38 @@ uv run python scripts/generate_detection_dataset.py --publish --topic acoupi/tes
 ---
 
 ## Advanced Tools & Development
+
+## Production On A Hetzner VPS
+
+Recommended production shape:
+
+- expose only the reverse proxy publicly for HTTP/HTTPS
+- keep PostgreSQL internal to the Docker network
+- protect MQTT with username/password at minimum
+- disable dev-only tools such as MQTT Explorer
+- use strong secrets in a private `.env` file on the VPS
+
+Minimum steps:
+
+1. Provision DNS records for `GRAFANA_DOMAIN` and `INGEST_DOMAIN`
+2. Set strong values for:
+   - `POSTGRES_PASSWORD`
+   - `MQTT_USERNAME`
+   - `MQTT_PASSWORD`
+   - `GRAFANA_ADMIN_PASSWORD`
+3. Start with:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+Operational recommendations:
+
+- block public access to port `5432`
+- open only `22`, `80`, `443`, and `1883` if MQTT must be public
+- use SSH keys only on the VPS
+- configure backups for the PostgreSQL volume
+- keep `.env` out of git and readable only by the deploy user
 
 ### Modifying Dashboards
 
