@@ -32,6 +32,32 @@
         "auto_count": 30
       },
       {
+        "id": "species_name",
+        "type": "query",
+        "name": "species_name",
+        "hide": 0,
+        "skipUrlSync": false,
+        "label": "Species",
+        "query": "\nSELECT\n    '__all' AS __value,\n    'All' AS __text\nUNION ALL SELECT\n    ot.tag_value AS __value,\n    ot.tag_value AS __text\nFROM observation_tags as ot\nWHERE\n    ot.tag_key = 'species'\nORDER BY __text;\n",
+        "datasource": {
+          "type": "postgres",
+          "uid": "acoupi-postgres"
+        },
+        "current": {
+          "text": "All",
+          "value": "__all",
+          "selected": true
+        },
+        "multi": true,
+        "options": [],
+        "refresh": 1,
+        "sort": 1,
+        "includeAll": false,
+        "auto": false,
+        "auto_min": "10s",
+        "auto_count": 30
+      },
+      {
         "id": "confidence_threshold",
         "type": "custom",
         "name": "confidence_threshold",
@@ -242,6 +268,68 @@
       "repeatDirection": "h"
     },
     {
+      "type": "heatmap",
+      "transparent": false,
+      "transformations": [],
+      "options": {
+        "color": {
+          "scheme": "continuous-BlYlRd",
+          "fill": "",
+          "exponent": 0,
+          "steps": 20,
+          "reverse": false
+        },
+        "showValue": "auto",
+        "yAxis": {
+          "min": 0,
+          "max": 1
+        },
+        "legend": {
+          "show": true
+        },
+        "tooltip": {
+          "show": true
+        },
+        "exemplars": {
+          "color": "rgba(255,0,255,0.7)"
+        },
+        "calculate": true,
+        "filterValues": {
+          "le": 1e-09
+        },
+        "cellGap": 1
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "id": 4,
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "\nSELECT\n    observations.recorded_on,\n    species_tags.confidence_score\nFROM observations\nJOIN observation_tags AS species_tags ON species_tags.observation_id = observations.id\nJOIN devices ON devices.id = observations.device_id\nWHERE species_tags.tag_key = 'species'\n    AND COALESCE(species_tags.confidence_score, 1) >= ${confidence_threshold}\n    AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n    AND ('__all' in (${species_name}) OR species_tags.tag_value IN (${species_name}))\n    AND observations.recorded_on >= $__timeFrom()\n    AND observations.recorded_on <= $__timeTo()\nORDER BY recorded_on DESC, confidence_score ASC;\n",
+          "rawQuery": true,
+          "format": "table",
+          "datasource": {
+            "type": "postgres",
+            "uid": "acoupi-postgres"
+          }
+        }
+      ],
+      "title": "Confidence Score Heatmap",
+      "datasource": {
+        "type": "postgres",
+        "uid": "acoupi-postgres"
+      },
+      "gridPos": {
+        "h": 14,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
+      "repeatDirection": "h"
+    },
+    {
       "type": "table",
       "transparent": false,
       "transformations": [],
@@ -260,7 +348,7 @@
         "defaults": {},
         "overrides": []
       },
-      "id": 4,
+      "id": 5,
       "targets": [
         {
           "refId": "A",
@@ -282,7 +370,7 @@
         "h": 14,
         "w": 24,
         "x": 0,
-        "y": 32
+        "y": 46
       },
       "repeatDirection": "h"
     }

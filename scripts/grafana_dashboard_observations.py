@@ -3,11 +3,13 @@ from __future__ import annotations
 from grafana_foundation_sdk.builders import (
     bargauge,
     dashboard,
+    heatmap,
     statushistory,
     table,
 )
 from grafana_foundation_sdk.builders.common import ReduceDataOptions
 from grafana_foundation_sdk.builders.dashboard import FieldColor
+from grafana_foundation_sdk.builders.heatmap import HeatmapColorOptions, YAxisConfig
 from grafana_foundation_sdk.models.common import (
     BarGaugeDisplayMode,
     BarGaugeValueMode,
@@ -17,7 +19,6 @@ from grafana_foundation_sdk.models.common import (
 )
 from grafana_foundation_sdk.models.dashboard import (
     DashboardCursorSync,
-    DataSourceRef,
     FieldColorModeId,
     GridPos,
     VariableHide,
@@ -27,7 +28,6 @@ from grafana_foundation_sdk.models.dashboard import (
 )
 
 from scripts.grafana_dashboards_common import (
-    classic_palette,
     json_from_builder,
     multi_tooltip_desc,
     postgres_ref,
@@ -171,11 +171,50 @@ def build_detections_per_species_panel():
     )
 
 
+OBSERVATION_CONFIDENCE_SCORE_SQL = """
+SELECT
+    observations.recorded_on,
+    species_tags.confidence_score
+FROM observations
+JOIN observation_tags AS species_tags ON species_tags.observation_id = observations.id
+JOIN devices ON devices.id = observations.device_id
+WHERE species_tags.tag_key = 'species'
+    AND COALESCE(species_tags.confidence_score, 1) >= ${confidence_threshold}
+    AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')
+    AND ('__all' in (${species_name}) OR species_tags.tag_value IN (${species_name}))
+    AND observations.recorded_on >= $__timeFrom()
+    AND observations.recorded_on <= $__timeTo()
+ORDER BY recorded_on DESC, confidence_score ASC;
+"""
+
+
+def build_confidence_score_panel():
+    return (
+        heatmap.Panel()
+        .title("Confidence Score Heatmap")
+        .id(4)
+        .grid_pos(GridPos(14, 24, 0, 0))
+        .datasource(postgres_ref())
+        .calculate(True)
+        .color(
+            HeatmapColorOptions().scheme(FieldColorModeId.CONTINUOUS_BL_YL_RD).steps(20)
+        )
+        .show_tooltip()
+        .y_axis(YAxisConfig().min(0).max(1))
+        .with_target(
+            PostgresQueryBuilder()
+            .query(OBSERVATION_CONFIDENCE_SCORE_SQL)
+            .datasource(postgres_ref())
+            .format("table")
+        )
+    )
+
+
 def build_observation_table():
     return (
         table.Panel()
         .title("Observation Records")
-        .id(4)
+        .id(5)
         .grid_pos(GridPos(14, 24, 0, 0))
         .datasource(postgres_ref())
         .show_header(True)
@@ -218,6 +257,37 @@ def build_device_name_variable():
     )
 
 
+SPECIES_NAME_SQL = """
+SELECT
+    '__all' AS __value,
+    'All' AS __text
+UNION ALL SELECT
+    ot.tag_value AS __value,
+    ot.tag_value AS __text
+FROM observation_tags as ot
+WHERE
+    ot.tag_key = 'species'
+ORDER BY __text;
+"""
+
+
+def build_species_name_variable():
+    return (
+        dashboard.QueryVariable("species_name")
+        .id("species_name")
+        .label("Species")
+        .datasource(postgres_ref())
+        .hide(VariableHide.DONT_HIDE)
+        .include_all(False)
+        .multi(True)
+        .current(VariableOption(selected=True, text="All", value="__all"))
+        .query(SPECIES_NAME_SQL)
+        .refresh(VariableRefresh.ON_DASHBOARD_LOAD)
+        .sort(VariableSort.ALPHABETICAL_ASC)
+        .options([])
+    )
+
+
 RECORDING_DAY_SQL = """
 SELECT DISTINCT
     to_char(recorded_on::date, 'YYYY-MM-DD') AS recording_day
@@ -243,6 +313,25 @@ def build_recording_day_variable():
     )
 
 
+def build_confidence_threshold_variable():
+    return (
+        dashboard.CustomVariable("confidence_threshold")
+        .id("confidence_threshold")
+        .label("Confidence Threshold")
+        .hide(VariableHide.DONT_HIDE)
+        .include_all(False)
+        .multi(False)
+        .current(VariableOption(selected=True, text="0.7", value="0.7"))
+        .options(
+            [
+                VariableOption(selected=False, text="0.5", value="0.5"),
+                VariableOption(selected=True, text="0.7", value="0.7"),
+                VariableOption(selected=False, text="0.9", value="0.9"),
+            ]
+        )
+    )
+
+
 def build_dashboard() -> dict:
     dash = (
         dashboard.Dashboard("Observations")
@@ -256,25 +345,12 @@ def build_dashboard() -> dict:
         .editable()
         .version(1)
         .with_variable(build_device_name_variable())
-        .with_variable(
-            dashboard.CustomVariable("confidence_threshold")
-            .id("confidence_threshold")
-            .label("Confidence Threshold")
-            .hide(VariableHide.DONT_HIDE)
-            .include_all(False)
-            .multi(False)
-            .current(VariableOption(selected=True, text="0.7", value="0.7"))
-            .options(
-                [
-                    VariableOption(selected=False, text="0.5", value="0.5"),
-                    VariableOption(selected=True, text="0.7", value="0.7"),
-                    VariableOption(selected=False, text="0.9", value="0.9"),
-                ]
-            )
-        )
+        .with_variable(build_species_name_variable())
+        .with_variable(build_confidence_threshold_variable())
         .with_panel(build_detections_per_species_panel())
         .with_panel(build_observations_per_day())
         .with_panel(build_observations_per_hour())
+        .with_panel(build_confidence_score_panel())
         .with_panel(build_observation_table())
     )
 
