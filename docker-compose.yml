@@ -17,6 +17,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-acoupi}
       POSTGRES_USER: ${POSTGRES_USER:-acoupi}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-acoupi}
+      TZ: ${TZ:-Europe/London}
     ports:
       - "5432:5432"
     healthcheck:
@@ -28,6 +29,8 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     restart: unless-stopped
 
   ingest:
@@ -49,8 +52,12 @@ services:
       DEVICE_TOPIC_PREFIX: ${DEVICE_TOPIC_PREFIX:-acoupi/}
       DATABASE_URL: postgresql://${POSTGRES_USER:-acoupi}:${POSTGRES_PASSWORD:-acoupi}@postgres:5432/${POSTGRES_DB:-acoupi}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      TZ: ${TZ:-Europe/London}
     ports:
       - "8000:8000"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     restart: unless-stopped
 
   grafana:
@@ -66,9 +73,12 @@ services:
       GRAFANA_DATABASE_NAME: ${POSTGRES_DB:-acoupi}
       GRAFANA_DATABASE_USER: ${POSTGRES_USER:-acoupi}
       GRAFANA_DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-acoupi}
+      TZ: ${TZ:-Europe/London}
     ports:
       - "3000:3000"
     volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
       - grafana-data:/var/lib/grafana
       - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro

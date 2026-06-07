@@ -2,7 +2,10 @@ from datetime import datetime
 from pathlib import Path
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+LOCAL_TIMEZONE = datetime.now().astimezone().tzinfo
 
 
 class Tag(BaseModel):
@@ -45,6 +48,13 @@ class Deployment(BaseModel):
     started_on: datetime
     ended_on: datetime | None = None
 
+    @field_validator("started_on", "ended_on", mode="after")
+    @classmethod
+    def assume_utc_for_naive_datetimes(cls, value: datetime | None) -> datetime | None:
+        if value is None or value.tzinfo is not None:
+            return value
+        return value.replace(tzinfo=LOCAL_TIMEZONE)
+
 
 class Recording(BaseModel):
     model_config = ConfigDict(extra="allow")
@@ -58,6 +68,13 @@ class Recording(BaseModel):
     chunksize: int | None = 4096
     id: UUID
 
+    @field_validator("created_on", mode="after")
+    @classmethod
+    def assume_utc_for_naive_created_on(cls, value: datetime) -> datetime:
+        if value.tzinfo is not None:
+            return value
+        return value.replace(tzinfo=LOCAL_TIMEZONE)
+
 
 class ModelOutput(BaseModel):
     model_config = ConfigDict(extra="allow")
@@ -69,6 +86,13 @@ class ModelOutput(BaseModel):
     detections: list[Detection] = Field(default_factory=list)
     created_on: datetime
 
+    @field_validator("created_on", mode="after")
+    @classmethod
+    def assume_utc_for_naive_created_on(cls, value: datetime) -> datetime:
+        if value.tzinfo is not None:
+            return value
+        return value.replace(tzinfo=LOCAL_TIMEZONE)
+
 
 class Heartbeat(BaseModel):
     model_config = ConfigDict(extra="allow")
@@ -76,3 +100,10 @@ class Heartbeat(BaseModel):
     sent_on: datetime
     device_id: str
     status: str = "OK"
+
+    @field_validator("sent_on", mode="after")
+    @classmethod
+    def assume_utc_for_naive_sent_on(cls, value: datetime) -> datetime:
+        if value.tzinfo is not None:
+            return value
+        return value.replace(tzinfo=LOCAL_TIMEZONE)
