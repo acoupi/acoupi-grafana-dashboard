@@ -26,14 +26,14 @@ from grafana_foundation_sdk.models.dashboard import (
     VariableSort,
 )
 
-from scripts.grafana_dashboards_common import (
+from .dashboards_common import (
     classic_palette,
     default_legend,
     json_from_builder,
     postgres_ref,
     single_tooltip,
 )
-from scripts.grafana_sql_datasource import PostgresQueryBuilder
+from .sql_datasource import PostgresQueryBuilder
 
 HEARTBEATS_BY_DEVICE_SQL = """
 WITH device_rows AS (
@@ -53,7 +53,6 @@ WHERE m.message_type = 'heartbeat'
   AND $__timeFilter(m.received_at)
 ORDER BY m.received_at;
 """
-
 
 TOTAL_DEVICES_SQL = """
 SELECT COUNT(*)::double precision AS value
@@ -100,7 +99,6 @@ LEFT JOIN latest_heartbeats ON latest_heartbeats.device_id = devices.device_name
 WHERE latest_heartbeats.last_heartbeat_at IS NULL
    OR latest_heartbeats.last_heartbeat_at < NOW() - INTERVAL '6 hours';
 """
-
 
 DEVICE_CARD_SQL = """
 SELECT device_name AS __value, device_name AS __text
@@ -165,10 +163,7 @@ def build_device_health_card_panel() -> table.Panel:
         .repeat("device_card")
         .repeat_direction("h")
         .override_by_name(
-            "healthy",
-            [
-                DynamicConfigValue(id_val="custom.hidden", value=True),
-            ],
+            "healthy", [DynamicConfigValue(id_val="custom.hidden", value=True)]
         )
         .override_by_name(
             "status",
@@ -186,16 +181,12 @@ def build_device_health_card_panel() -> table.Panel:
                     ],
                 ),
                 DynamicConfigValue(
-                    id_val="custom.cellOptions",
-                    value={"type": "color-text"},
+                    id_val="custom.cellOptions", value={"type": "color-text"}
                 ),
             ],
         )
         .override_by_name(
-            "last_heartbeat",
-            [
-                DynamicConfigValue(id_val="custom.width", value=220),
-            ],
+            "last_heartbeat", [DynamicConfigValue(id_val="custom.width", value=220)]
         )
         .with_target(
             PostgresQueryBuilder()
@@ -214,12 +205,11 @@ def build_unhealthy_devices_panel() -> stat.Panel:
         .id(11)
         .grid_pos(GridPos(h=4, w=12, x=12, y=0))
         .datasource(postgres_ref())
-        .color_mode(BigValueColorMode.NONE)
+        .color_mode(BigValueColorMode.BACKGROUND)
         .graph_mode(BigValueGraphMode.NONE)
         .justify_mode(BigValueJustifyMode.CENTER)
         .orientation(VizOrientation.AUTO)
         .text_mode(BigValueTextMode.VALUE)
-        .color_mode(BigValueColorMode.BACKGROUND)
         .reduce_options(ReduceDataOptions().values(False).calcs(["lastNotNull"]))
         .with_target(
             PostgresQueryBuilder()

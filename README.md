@@ -10,6 +10,23 @@ This repository contains:
 - `Grafana` for a simple dashboard
 - optional `MQTT Explorer` for live broker inspection
 
+Service-specific container assets now live under `services/`:
+
+- `services/ingest/`
+- `services/grafana/`
+- `services/mosquitto/`
+- `services/postgres/`
+
+Each service has its own Dockerfile, and baked configuration is copied into images at build time rather than mounted from the repository root.
+
+Repository ownership is now split like this:
+
+- `services/ingest/`: Python ingest application, packaging, and image build
+- `services/grafana/`: provisioning, generated dashboards, dashboard generator code, and service-local tooling
+- `services/mosquitto/`: broker image config
+- `services/postgres/`: database init schema
+- `scripts/`: repo-level helper scripts for test data publishing and local tooling
+
 ## Message model
 
 - Each device publishes to its own MQTT topic.
@@ -145,18 +162,24 @@ Use this for device heartbeat monitoring:
 
 Use this for ecological interpretation:
 
-- detections per species per day
-- detections per hour of day by species
+- detections per selected tag value per day
+- detections per selected tag value by hour
 - confidence threshold selector
-- day selector for the hourly species panel
+- tag key and tag value selectors
 
 ## Development
 
-Install and run with `uv`:
+Install dependencies for the ingest service and run it locally:
 
 ```bash
 uv sync
-uv run uvicorn acoupi_mqtt_server.main:app --host 0.0.0.0 --port 8000
+PYTHONPATH=services/ingest/src uv run --active uvicorn acoupi_mqtt_server.main:app --host 0.0.0.0 --port 8000
+```
+
+Or use:
+
+```bash
+just dev-ingest
 ```
 
 ## Test publishers
@@ -254,6 +277,41 @@ The default topic derivation rule strips `DEVICE_TOPIC_PREFIX` from the front of
 
 - topic `acoupi/pi-001` with `DEVICE_TOPIC_PREFIX=acoupi/` becomes `device_id=pi-001`
 - topic `customer-42/device-alpha` with an empty prefix becomes `device_id=customer-42/device-alpha`
+
+## Grafana Generator
+
+Grafana provisioning and generated dashboards live under `services/grafana/`.
+
+Regenerate dashboard JSON with:
+
+```bash
+just build-grafana
+```
+
+This writes generated dashboards into:
+
+- `services/grafana/dashboards/`
+
+## Grafana Generator
+
+Grafana provisioning, generated dashboards, and generator code live under `services/grafana/`.
+
+Regenerate dashboard JSON with:
+
+```bash
+just build-grafana
+```
+
+Or directly from the service folder:
+
+```bash
+cd services/grafana
+just build
+```
+
+Generated dashboards are written into:
+
+- `services/grafana/dashboards/`
 
 ## Specs
 

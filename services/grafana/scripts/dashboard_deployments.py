@@ -13,8 +13,8 @@ from grafana_foundation_sdk.models.dashboard import (
     ThresholdsMode,
 )
 
-from scripts.grafana_dashboards_common import json_from_builder, postgres_ref
-from scripts.grafana_sql_datasource import PostgresQueryBuilder
+from .dashboards_common import json_from_builder, postgres_ref
+from .sql_datasource import PostgresQueryBuilder
 
 DEPLOYMENT_MAP_SQL = """
 WITH latest_deployments AS (

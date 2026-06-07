@@ -10,14 +10,14 @@ from grafana_foundation_sdk.models.common import (
 )
 from grafana_foundation_sdk.models.dashboard import DashboardCursorSync, GridPos
 
-from scripts.grafana_dashboards_common import (
+from .dashboards_common import (
     classic_palette,
     default_legend,
     json_from_builder,
     postgres_ref,
     single_tooltip,
 )
-from scripts.grafana_sql_datasource import PostgresQueryBuilder
+from .sql_datasource import PostgresQueryBuilder
 
 MESSAGES_OVER_TIME_SQL = """
 SELECT $__timeGroupAlias(received_at, '1m'), COUNT(*)::double precision AS value

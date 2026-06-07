@@ -20,7 +20,6 @@ from grafana_foundation_sdk.models.dashboard import (
 )
 
 POSTGRES_DATASOURCE_UID = "acoupi-postgres"
-POSTGRES_DATASOURCE = {"type": "postgres", "uid": POSTGRES_DATASOURCE_UID}
 
 
 def json_from_builder(builder: Any) -> dict[str, Any]:

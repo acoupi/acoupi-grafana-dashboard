@@ -1,17 +1,20 @@
 services:
   mosquitto:
-    image: eclipse-mosquitto:2
+    build:
+      context: services/mosquitto/
+      dockerfile: Dockerfile
     container_name: acoupi-mosquitto
     ports:
       - "1883:1883"
     volumes:
-      - ./infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - mosquitto-data:/mosquitto/data
       - mosquitto-log:/mosquitto/log
     restart: unless-stopped
 
   postgres:
-    image: postgres:16
+    build:
+      context: services/postgres/
+      dockerfile: Dockerfile
     container_name: acoupi-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-acoupi}
@@ -28,14 +31,14 @@ services:
       start_period: 5s
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
     restart: unless-stopped
 
   ingest:
     build:
-      context: .
+      context: services/ingest/
+      dockerfile: Dockerfile
     container_name: acoupi-ingest
     depends_on:
       mosquitto:
@@ -61,7 +64,9 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: grafana/grafana:11.0.0
+    build:
+      context: services/grafana/
+      dockerfile: Dockerfile
     container_name: acoupi-grafana
     depends_on:
       postgres:
@@ -80,8 +85,6 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
       - grafana-data:/var/lib/grafana
-      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
     restart: unless-stopped
 
   mqtt-explorer:

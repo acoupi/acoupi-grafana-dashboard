@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-from grafana_foundation_sdk.builders import (
-    dashboard,
-    statetimeline,
-    table,
-)
+from grafana_foundation_sdk.builders import dashboard, statetimeline, table
 from grafana_foundation_sdk.models.common import TableCellHeight, TimeZoneBrowser
 from grafana_foundation_sdk.models.dashboard import (
     DashboardCursorSync,
@@ -12,8 +8,8 @@ from grafana_foundation_sdk.models.dashboard import (
     GridPos,
 )
 
-from scripts.grafana_dashboards_common import json_from_builder, postgres_ref
-from scripts.grafana_sql_datasource import PostgresQueryBuilder
+from .dashboards_common import json_from_builder, postgres_ref
+from .sql_datasource import PostgresQueryBuilder
 
 RECORDING_COVERAGE_SQL = """
 SELECT

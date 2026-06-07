@@ -1,0 +1,2 @@
+build:
+    uv run python -m scripts.generate_dashboards

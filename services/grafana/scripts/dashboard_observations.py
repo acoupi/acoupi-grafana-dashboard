@@ -27,12 +27,8 @@ from grafana_foundation_sdk.models.dashboard import (
     VariableSort,
 )
 
-from scripts.grafana_dashboards_common import (
-    json_from_builder,
-    multi_tooltip_desc,
-    postgres_ref,
-)
-from scripts.grafana_sql_datasource import PostgresQueryBuilder
+from .dashboards_common import json_from_builder, multi_tooltip_desc, postgres_ref
+from .sql_datasource import PostgresQueryBuilder
 
 OBSERVATIONS_PER_DAY_SQL = """
 SELECT
@@ -318,31 +314,6 @@ def build_tag_value_variable():
         .query(TAG_VALUE_SQL)
         .refresh(VariableRefresh.ON_DASHBOARD_LOAD)
         .sort(VariableSort.ALPHABETICAL_ASC)
-        .options([])
-    )
-
-
-RECORDING_DAY_SQL = """
-SELECT DISTINCT
-    to_char(recorded_on::date, 'YYYY-MM-DD') AS recording_day
-FROM observations
-ORDER BY recording_day DESC;
-"""
-
-
-def build_recording_day_variable():
-    return (
-        dashboard.QueryVariable("recording_day")
-        .id("recording_day")
-        .label("Recording Day (Hourly Panel)")
-        .datasource(postgres_ref())
-        .hide(VariableHide.DONT_HIDE)
-        .include_all(False)
-        .multi(False)
-        .current(VariableOption(selected=True, text="", value=""))
-        .query(RECORDING_DAY_SQL)
-        .refresh(VariableRefresh.ON_DASHBOARD_LOAD)
-        .sort(VariableSort.NUMERICAL_ASC)
         .options([])
     )
 

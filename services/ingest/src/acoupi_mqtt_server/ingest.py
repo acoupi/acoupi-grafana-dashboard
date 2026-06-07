@@ -208,10 +208,7 @@ class MqttIngestService:
     def __init__(self, settings: Settings, database: Database) -> None:
         self.settings = settings
         self.database = database
-        self.client = mqtt.Client(
-            client_id=settings.mqtt_client_id,
-            callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
-        )
+        self.client = mqtt.Client(client_id=settings.mqtt_client_id)
         self.connected = False
 
         if settings.mqtt_username:
@@ -239,14 +236,15 @@ class MqttIngestService:
     def on_connect(
         self,
         client: mqtt.Client,
-        userdata: Any,
-        flags: Any,
-        reason_code: Any,
-        properties: Any,
+        userdata: object,
+        flags: object,
+        reason_code: object,
+        properties: object | None = None,
     ) -> None:
         self.connected = True
         logger.info(
-            "connected to MQTT broker, subscribing to %s",
+            "connected to MQTT broker with reason code %s; subscribing to %s",
+            reason_code,
             self.settings.mqtt_subscribe_topic,
         )
         client.subscribe(self.settings.mqtt_subscribe_topic)
@@ -254,57 +252,59 @@ class MqttIngestService:
     def on_disconnect(
         self,
         client: mqtt.Client,
-        userdata: Any,
-        disconnect_flags: Any,
-        reason_code: Any,
-        properties: Any,
+        userdata: object,
+        disconnect_flags: object,
+        reason_code: object,
+        properties: object | None = None,
     ) -> None:
         self.connected = False
-        logger.warning("disconnected from MQTT broker: %s", reason_code)
+        logger.warning("disconnected from MQTT broker with reason code %s", reason_code)
 
     def on_message(
-        self, client: mqtt.Client, userdata: Any, msg: mqtt.MQTTMessage
+        self, client: mqtt.Client, userdata: object, message: mqtt.MQTTMessage
     ) -> None:
-        classified = classify_payload(msg.payload)
-        device_id = derive_device_id(msg.topic, self.settings.device_topic_prefix)
+        topic = message.topic
+        canonical_device_id = derive_device_id(topic, self.settings.device_topic_prefix)
+        classified = classify_payload(message.payload)
 
-        record = {
-            "event_timestamp": classified.event_timestamp,
-            "topic": msg.topic,
-            "device_id": device_id,
-            "payload_device_id": classified.payload_device_id,
-            "message_type": classified.message_type,
-            "payload": classified.payload,
-            "payload_text": classified.payload_text,
-            "qos": msg.qos,
-            "retain": bool(msg.retain),
-            "ingest_status": classified.ingest_status,
-            "reject_reason": classified.reject_reason,
-        }
+        message_id = self.database.insert_message(
+            {
+                "event_timestamp": classified.event_timestamp,
+                "topic": topic,
+                "device_id": canonical_device_id,
+                "payload_device_id": classified.payload_device_id,
+                "message_type": classified.message_type,
+                "payload": classified.payload,
+                "payload_text": classified.payload_text,
+                "qos": message.qos,
+                "retain": message.retain,
+                "ingest_status": classified.ingest_status,
+                "reject_reason": classified.reject_reason,
+            }
+        )
 
-        try:
-            message_id = self.database.insert_message(record)
-
-            if classified.message_type == "heartbeat":
-                self.database.upsert_device(device_id, classified.payload_device_id)
-            elif (
-                classified.message_type == "detection"
-                and classified.payload is not None
-            ):
-                normalize_detection_payload(
-                    self.database,
-                    message_id=message_id,
-                    device_name=device_id,
-                    payload=classified.payload,
-                )
-        except Exception:
-            logger.exception("failed to persist MQTT message from topic %s", msg.topic)
+        if classified.ingest_status != "accepted" or classified.payload is None:
+            logger.info(
+                "stored MQTT message %s topic=%s device_id=%s status=%s reason=%s",
+                message_id,
+                topic,
+                canonical_device_id,
+                classified.ingest_status,
+                classified.reject_reason,
+            )
             return
 
+        if classified.message_type == "detection":
+            normalize_detection_payload(
+                self.database, message_id, canonical_device_id, classified.payload
+            )
+
         logger.info(
-            "stored MQTT message topic=%s device_id=%s message_type=%s status=%s",
-            msg.topic,
-            device_id,
+            "stored MQTT message %s topic=%s device_id=%s payload_device_id=%s type=%s status=%s",
+            message_id,
+            topic,
+            canonical_device_id,
+            classified.payload_device_id,
             classified.message_type,
             classified.ingest_status,
         )

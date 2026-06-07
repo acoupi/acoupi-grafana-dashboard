@@ -1,0 +1,7 @@
+[project]
+name = "acoupi-grafana-dashboard"
+version = "0.1.0"
+description = "Code for generating a grafana dashboard for acoupi"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["grafana-foundation-sdk>=1769699998!10.1.0"]

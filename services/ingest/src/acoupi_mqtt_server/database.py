@@ -1,33 +1,34 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable
 
-from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
+from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
+
+logger = logging.getLogger(__name__)
 
 
 class Database:
-    def __init__(self, dsn: str) -> None:
-        self.pool = ConnectionPool(
-            conninfo=dsn, min_size=1, max_size=5, kwargs={"row_factory": dict_row}
-        )
+    def __init__(self, database_url: str) -> None:
+        self.pool = ConnectionPool(database_url, kwargs={"row_factory": dict_row})
 
     def open(self) -> None:
+        logger.info("opening PostgreSQL connection pool")
         self.pool.open(wait=True)
 
     def close(self) -> None:
+        logger.info("closing PostgreSQL connection pool")
         self.pool.close()
 
-    def ping(self) -> bool:
-        with self.pool.connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT 1")
-                cur.fetchone()
-        return True
-
-    def insert_message(self, record: dict) -> int:
-        payload = Jsonb(record["payload"]) if record["payload"] is not None else None
+    def insert_message(self, message: dict) -> int:
+        db_message = {
+            **message,
+            "payload": Jsonb(message["payload"])
+            if message.get("payload") is not None
+            else None,
+        }
         with self.pool.connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -57,16 +58,41 @@ class Database:
                         %(ingest_status)s,
                         %(reject_reason)s
                     )
+                    RETURNING id
                     """,
-                    {**record, "payload": payload},
+                    db_message,
                 )
-                cur.execute("SELECT lastval() AS id")
-                message_id = cur.fetchone()["id"]
+                row = cur.fetchone()
             conn.commit()
-        if message_id is None:
-            raise RuntimeError("failed to retrieve inserted mqtt_messages id")
-        assert isinstance(message_id, int)
-        return message_id
+        if row is None:
+            raise RuntimeError("failed to insert MQTT message")
+        return row["id"]
+
+    def recent_messages(self, limit: int = 50) -> list[dict]:
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT
+                        id,
+                        received_at,
+                        topic,
+                        device_id,
+                        payload_device_id,
+                        message_type,
+                        qos,
+                        retain,
+                        ingest_status,
+                        reject_reason,
+                        payload
+                    FROM mqtt_messages
+                    ORDER BY received_at DESC
+                    LIMIT %s
+                    """,
+                    (limit,),
+                )
+                rows = cur.fetchall()
+        return list(rows)
 
     def upsert_device(self, device_name: str, serial_number: str | None) -> int:
         with self.pool.connection() as conn:
@@ -257,6 +283,6 @@ class Database:
                         ON CONFLICT (observation_id, tag_key, tag_value) DO UPDATE
                         SET confidence_score = EXCLUDED.confidence_score
                         """,
-                        {"observation_id": observation_id, **tag},
+                        {**tag, "observation_id": observation_id},
                     )
             conn.commit()
