@@ -3,7 +3,36 @@
   "editable": true,
   "graphTooltip": 0,
   "schemaVersion": 36,
-  "templating": {},
+  "templating": {
+    "list": [
+      {
+        "id": "device_card",
+        "type": "query",
+        "name": "device_card",
+        "hide": 2,
+        "skipUrlSync": false,
+        "label": "Device Cards",
+        "query": "\nSELECT device_name AS __value, device_name AS __text\nFROM devices\nORDER BY device_name;\n",
+        "datasource": {
+          "type": "postgres",
+          "uid": "acoupi-postgres"
+        },
+        "current": {
+          "text": "All",
+          "value": "$__all",
+          "selected": true
+        },
+        "multi": true,
+        "options": [],
+        "refresh": 1,
+        "sort": 1,
+        "includeAll": true,
+        "auto": false,
+        "auto_min": "10s",
+        "auto_count": 30
+      }
+    ]
+  },
   "annotations": {},
   "uid": "acoupi-health",
   "title": "Health",
@@ -20,6 +49,122 @@
   "refresh": "30s",
   "version": 1,
   "panels": [
+    {
+      "type": "stat",
+      "transparent": false,
+      "transformations": [],
+      "options": {
+        "graphMode": "none",
+        "colorMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false
+        },
+        "textMode": "value",
+        "orientation": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "id": 10,
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "\nSELECT COUNT(*)::double precision AS value\nFROM devices;\n",
+          "rawQuery": true,
+          "format": "table",
+          "datasource": {
+            "type": "postgres",
+            "uid": "acoupi-postgres"
+          }
+        }
+      ],
+      "title": "Devices",
+      "datasource": {
+        "type": "postgres",
+        "uid": "acoupi-postgres"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "repeatDirection": "h"
+    },
+    {
+      "type": "stat",
+      "transparent": false,
+      "transformations": [],
+      "options": {
+        "graphMode": "none",
+        "colorMode": "background",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false
+        },
+        "textMode": "value",
+        "orientation": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              },
+              {
+                "value": 2,
+                "color": "yellow"
+              },
+              {
+                "value": 4,
+                "color": "orange"
+              },
+              {
+                "value": 6,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 11,
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "\nWITH latest_heartbeats AS (\n  SELECT\n    device_id,\n    MAX(received_at) AS last_heartbeat_at\n  FROM mqtt_messages\n  WHERE message_type = 'heartbeat'\n    AND ingest_status = 'accepted'\n  GROUP BY device_id\n)\nSELECT COUNT(*)::double precision AS value\nFROM devices\nLEFT JOIN latest_heartbeats ON latest_heartbeats.device_id = devices.device_name\nWHERE latest_heartbeats.last_heartbeat_at IS NULL\n   OR latest_heartbeats.last_heartbeat_at < NOW() - INTERVAL '6 hours';\n",
+          "rawQuery": true,
+          "format": "table",
+          "datasource": {
+            "type": "postgres",
+            "uid": "acoupi-postgres"
+          }
+        }
+      ],
+      "title": "Unhealthy Devices",
+      "datasource": {
+        "type": "postgres",
+        "uid": "acoupi-postgres"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "repeatDirection": "h"
+    },
     {
       "type": "timeseries",
       "transparent": false,
@@ -75,7 +220,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 0
+        "y": 4
       },
       "repeatDirection": "h"
     },
@@ -120,8 +265,111 @@
         "h": 12,
         "w": 24,
         "x": 0,
-        "y": 8
+        "y": 12
       },
+      "repeatDirection": "h"
+    },
+    {
+      "type": "table",
+      "transparent": false,
+      "transformations": [],
+      "options": {
+        "frameIndex": 0,
+        "showHeader": true,
+        "showTypeIcons": false,
+        "footer": {
+          "show": false,
+          "reducer": [],
+          "countRows": false
+        },
+        "cellHeight": "sm"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "healthy"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "status"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "Healthy": {
+                        "text": "Healthy",
+                        "color": "green"
+                      },
+                      "Unhealthy": {
+                        "text": "Unhealthy",
+                        "color": "red"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "last_heartbeat"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 220
+              }
+            ]
+          }
+        ]
+      },
+      "id": 12,
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "\nWITH requested_device AS (\n  SELECT ${device_card:sqlstring} AS device_name\n), latest_heartbeat AS (\n  SELECT MAX(received_at) AS last_heartbeat_at\n  FROM mqtt_messages\n  WHERE message_type = 'heartbeat'\n    AND ingest_status = 'accepted'\n    AND device_id = ${device_card:sqlstring}\n)\nSELECT\n  requested_device.device_name AS device,\n  CASE\n    WHEN last_heartbeat_at IS NOT NULL AND last_heartbeat_at >= NOW() - INTERVAL '6 hours' THEN 1\n    ELSE 0\n  END AS healthy,\n  CASE\n    WHEN last_heartbeat_at IS NOT NULL AND last_heartbeat_at >= NOW() - INTERVAL '6 hours' THEN 'Healthy'\n    ELSE 'Unhealthy'\n  END AS status,\n  last_heartbeat_at AS last_heartbeat\nFROM requested_device\nCROSS JOIN latest_heartbeat;\n",
+          "rawQuery": true,
+          "format": "table",
+          "datasource": {
+            "type": "postgres",
+            "uid": "acoupi-postgres"
+          }
+        }
+      ],
+      "title": "${device_card}",
+      "datasource": {
+        "type": "postgres",
+        "uid": "acoupi-postgres"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 24
+      },
+      "repeat": "device_card",
       "repeatDirection": "h"
     }
   ]
