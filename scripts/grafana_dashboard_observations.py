@@ -42,9 +42,10 @@ SELECT
 FROM observations o
 JOIN observation_tags ot ON ot.observation_id = o.id
 JOIN devices ON devices.id = o.device_id
-WHERE ot.tag_key = 'species'
+WHERE ot.tag_key = '${tag_key}'
   AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}
   AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')
+  AND ('__all' in (${tag_value}) OR ot.tag_value IN (${tag_value}))
   AND o.recorded_on >= $__timeFrom()
   AND o.recorded_on <= $__timeTo()
 GROUP BY 1, 2
@@ -55,8 +56,8 @@ ORDER BY 1, 2;
 def build_observations_per_day():
     return (
         statushistory.Panel()
-        .title("Observations Per Species Per Day")
-        .description("Shows daily detection counts for each species.")
+        .title("Observations Per Tag Per Day")
+        .description("Shows daily detection counts for the selected tag values.")
         .id(2)
         .grid_pos(GridPos(h=10, w=24, x=0, y=0))
         .datasource(postgres_ref())
@@ -79,9 +80,10 @@ SELECT
 FROM observations o
 JOIN observation_tags ot ON ot.observation_id = o.id
 JOIN devices ON devices.id = o.device_id
-WHERE ot.tag_key = 'species'
+WHERE ot.tag_key = '${tag_key}'
   AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}
   AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')
+  AND ('__all' in (${tag_value}) OR ot.tag_value IN (${tag_value}))
   AND o.recorded_on >= $__timeFrom()
   AND o.recorded_on <= $__timeTo()
 GROUP BY 1, 2
@@ -92,8 +94,8 @@ ORDER BY 1, 2;
 def build_observations_per_hour():
     return (
         statushistory.Panel()
-        .title("Observations Per Hour Of Day By Species")
-        .description("Shows hourly detection counts for each species.")
+        .title("Observations Per Hour Of Day By Tag")
+        .description("Shows hourly detection counts for the selected tag values.")
         .id(3)
         .grid_pos(GridPos(10, 24, 0, 0))
         .datasource(postgres_ref())
@@ -110,10 +112,11 @@ def build_observations_per_hour():
 
 OBSERVATION_TABLE_QUERY = """
 SELECT
-    species_tags.tag_value AS species,
+    selected_tags.tag_key,
+    selected_tags.tag_value,
     devices.device_name AS device,
     observations.recorded_on,
-    COALESCE(species_tags.confidence_score, 1) AS confidence_score,
+    COALESCE(selected_tags.confidence_score, 1) AS confidence_score,
     observations.classified_by AS model_name,
     observations.detection_score,
     observations.event_start_seconds,
@@ -121,11 +124,12 @@ SELECT
     observations.frequency_low_hz,
     observations.frequency_high_hz
 FROM observations
-JOIN observation_tags AS species_tags ON species_tags.observation_id = observations.id
+JOIN observation_tags AS selected_tags ON selected_tags.observation_id = observations.id
 JOIN devices ON devices.id = observations.device_id
-WHERE species_tags.tag_key = 'species'
-    AND COALESCE(species_tags.confidence_score, 0) >= ${confidence_threshold}
+WHERE selected_tags.tag_key = '${tag_key}'
+    AND COALESCE(selected_tags.confidence_score, 0) >= ${confidence_threshold}
     AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')
+    AND ('__all' in (${tag_value}) OR selected_tags.tag_value IN (${tag_value}))
     AND observations.recorded_on >= $__timeFrom()
     AND observations.recorded_on <= $__timeTo()
 ORDER BY observations.recorded_on DESC
@@ -133,28 +137,29 @@ LIMIT 500;
 """
 
 
-DETECTIONS_PER_SPECIES_SQL = """
+DETECTIONS_PER_TAG_SQL = """
 SELECT
-    species_tags.tag_value AS species,
+    selected_tags.tag_value AS tag_value,
     COUNT(*)::double precision AS value
 FROM observations
-JOIN observation_tags AS species_tags ON species_tags.observation_id = observations.id
+JOIN observation_tags AS selected_tags ON selected_tags.observation_id = observations.id
 JOIN devices ON devices.id = observations.device_id
-WHERE species_tags.tag_key = 'species'
-    AND COALESCE(species_tags.confidence_score, 0) >= ${confidence_threshold}
+WHERE selected_tags.tag_key = '${tag_key}'
+    AND COALESCE(selected_tags.confidence_score, 0) >= ${confidence_threshold}
     AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')
+    AND ('__all' in (${tag_value}) OR selected_tags.tag_value IN (${tag_value}))
     AND observations.recorded_on >= $__timeFrom()
     AND observations.recorded_on <= $__timeTo()
-GROUP BY species_tags.tag_value
-ORDER BY value DESC, species ASC;
+GROUP BY selected_tags.tag_value
+ORDER BY value DESC, tag_value ASC;
 """
 
 
 def build_detections_per_species_panel():
     return (
         bargauge.Panel()
-        .title("Detections Per Species")
-        .description("Ranks species by total detections in the selected time range.")
+        .title("Detections Per Tag Value")
+        .description("Ranks selected tag values by total detections in the time range.")
         .id(1)
         .grid_pos(GridPos(12, 24, 0, 0))
         .datasource(postgres_ref())
@@ -167,7 +172,7 @@ def build_detections_per_species_panel():
         .min(0)
         .with_target(
             PostgresQueryBuilder()
-            .query(DETECTIONS_PER_SPECIES_SQL)
+            .query(DETECTIONS_PER_TAG_SQL)
             .datasource(postgres_ref())
             .format("table")
         )
@@ -177,14 +182,14 @@ def build_detections_per_species_panel():
 OBSERVATION_CONFIDENCE_SCORE_SQL = """
 SELECT
     observations.recorded_on,
-    species_tags.confidence_score
+    selected_tags.confidence_score
 FROM observations
-JOIN observation_tags AS species_tags ON species_tags.observation_id = observations.id
+JOIN observation_tags AS selected_tags ON selected_tags.observation_id = observations.id
 JOIN devices ON devices.id = observations.device_id
-WHERE species_tags.tag_key = 'species'
-    AND COALESCE(species_tags.confidence_score, 1) >= ${confidence_threshold}
+WHERE selected_tags.tag_key = '${tag_key}'
+    AND COALESCE(selected_tags.confidence_score, 1) >= ${confidence_threshold}
     AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')
-    AND ('__all' in (${species_name}) OR species_tags.tag_value IN (${species_name}))
+    AND ('__all' in (${tag_value}) OR selected_tags.tag_value IN (${tag_value}))
     AND observations.recorded_on >= $__timeFrom()
     AND observations.recorded_on <= $__timeTo()
 ORDER BY recorded_on DESC, confidence_score ASC;
@@ -264,7 +269,33 @@ def build_device_name_variable():
     )
 
 
-SPECIES_NAME_SQL = """
+TAG_KEY_SQL = """
+SELECT DISTINCT
+    ot.tag_key AS __value,
+    ot.tag_key AS __text
+FROM observation_tags as ot
+ORDER BY __text;
+"""
+
+
+def build_tag_key_variable():
+    return (
+        dashboard.QueryVariable("tag_key")
+        .id("tag_key")
+        .label("Tag Key")
+        .datasource(postgres_ref())
+        .hide(VariableHide.DONT_HIDE)
+        .include_all(False)
+        .multi(False)
+        .current(VariableOption(selected=True, text="species", value="species"))
+        .query(TAG_KEY_SQL)
+        .refresh(VariableRefresh.ON_DASHBOARD_LOAD)
+        .sort(VariableSort.ALPHABETICAL_ASC)
+        .options([])
+    )
+
+
+TAG_VALUE_SQL = """
 SELECT
     '__all' AS __value,
     'All' AS __text
@@ -273,22 +304,22 @@ UNION ALL SELECT
     ot.tag_value AS __text
 FROM observation_tags as ot
 WHERE
-    ot.tag_key = 'species'
+    ot.tag_key = '${tag_key}'
 ORDER BY __text;
 """
 
 
-def build_species_name_variable():
+def build_tag_value_variable():
     return (
-        dashboard.QueryVariable("species_name")
-        .id("species_name")
-        .label("Species")
+        dashboard.QueryVariable("tag_value")
+        .id("tag_value")
+        .label("Tag Value")
         .datasource(postgres_ref())
         .hide(VariableHide.DONT_HIDE)
         .include_all(False)
         .multi(True)
         .current(VariableOption(selected=True, text="All", value="__all"))
-        .query(SPECIES_NAME_SQL)
+        .query(TAG_VALUE_SQL)
         .refresh(VariableRefresh.ON_DASHBOARD_LOAD)
         .sort(VariableSort.ALPHABETICAL_ASC)
         .options([])
@@ -352,7 +383,8 @@ def build_dashboard() -> dict:
         .editable()
         .version(1)
         .with_variable(build_device_name_variable())
-        .with_variable(build_species_name_variable())
+        .with_variable(build_tag_key_variable())
+        .with_variable(build_tag_value_variable())
         .with_variable(build_confidence_threshold_variable())
         .with_panel(build_detections_per_species_panel())
         .with_panel(build_observations_per_day())

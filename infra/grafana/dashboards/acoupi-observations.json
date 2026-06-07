@@ -32,13 +32,39 @@
         "auto_count": 30
       },
       {
-        "id": "species_name",
+        "id": "tag_key",
         "type": "query",
-        "name": "species_name",
+        "name": "tag_key",
         "hide": 0,
         "skipUrlSync": false,
-        "label": "Species",
-        "query": "\nSELECT\n    '__all' AS __value,\n    'All' AS __text\nUNION ALL SELECT\n    ot.tag_value AS __value,\n    ot.tag_value AS __text\nFROM observation_tags as ot\nWHERE\n    ot.tag_key = 'species'\nORDER BY __text;\n",
+        "label": "Tag Key",
+        "query": "\nSELECT DISTINCT\n    ot.tag_key AS __value,\n    ot.tag_key AS __text\nFROM observation_tags as ot\nORDER BY __text;\n",
+        "datasource": {
+          "type": "postgres",
+          "uid": "acoupi-postgres"
+        },
+        "current": {
+          "text": "species",
+          "value": "species",
+          "selected": true
+        },
+        "multi": false,
+        "options": [],
+        "refresh": 1,
+        "sort": 1,
+        "includeAll": false,
+        "auto": false,
+        "auto_min": "10s",
+        "auto_count": 30
+      },
+      {
+        "id": "tag_value",
+        "type": "query",
+        "name": "tag_value",
+        "hide": 0,
+        "skipUrlSync": false,
+        "label": "Tag Value",
+        "query": "\nSELECT\n    '__all' AS __value,\n    'All' AS __text\nUNION ALL SELECT\n    ot.tag_value AS __value,\n    ot.tag_value AS __text\nFROM observation_tags as ot\nWHERE\n    ot.tag_key = '${tag_key}'\nORDER BY __text;\n",
         "datasource": {
           "type": "postgres",
           "uid": "acoupi-postgres"
@@ -139,7 +165,7 @@
       "targets": [
         {
           "refId": "A",
-          "rawSql": "\nSELECT\n    species_tags.tag_value AS species,\n    COUNT(*)::double precision AS value\nFROM observations\nJOIN observation_tags AS species_tags ON species_tags.observation_id = observations.id\nJOIN devices ON devices.id = observations.device_id\nWHERE species_tags.tag_key = 'species'\n    AND COALESCE(species_tags.confidence_score, 0) >= ${confidence_threshold}\n    AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n    AND observations.recorded_on >= $__timeFrom()\n    AND observations.recorded_on <= $__timeTo()\nGROUP BY species_tags.tag_value\nORDER BY value DESC, species ASC;\n",
+          "rawSql": "\nSELECT\n    selected_tags.tag_value AS tag_value,\n    COUNT(*)::double precision AS value\nFROM observations\nJOIN observation_tags AS selected_tags ON selected_tags.observation_id = observations.id\nJOIN devices ON devices.id = observations.device_id\nWHERE selected_tags.tag_key = '${tag_key}'\n    AND COALESCE(selected_tags.confidence_score, 0) >= ${confidence_threshold}\n    AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n    AND ('__all' in (${tag_value}) OR selected_tags.tag_value IN (${tag_value}))\n    AND observations.recorded_on >= $__timeFrom()\n    AND observations.recorded_on <= $__timeTo()\nGROUP BY selected_tags.tag_value\nORDER BY value DESC, tag_value ASC;\n",
           "rawQuery": true,
           "format": "table",
           "datasource": {
@@ -148,8 +174,8 @@
           }
         }
       ],
-      "title": "Detections Per Species",
-      "description": "Ranks species by total detections in the selected time range.",
+      "title": "Detections Per Tag Value",
+      "description": "Ranks selected tag values by total detections in the time range.",
       "datasource": {
         "type": "postgres",
         "uid": "acoupi-postgres"
@@ -193,7 +219,7 @@
       "targets": [
         {
           "refId": "A",
-          "rawSql": "\nSELECT\n  date_trunc('day', o.recorded_on) AS time,\n  ot.tag_value AS metric,\n  COUNT(*)::double precision AS value\nFROM observations o\nJOIN observation_tags ot ON ot.observation_id = o.id\nJOIN devices ON devices.id = o.device_id\nWHERE ot.tag_key = 'species'\n  AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}\n  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n  AND o.recorded_on >= $__timeFrom()\n  AND o.recorded_on <= $__timeTo()\nGROUP BY 1, 2\nORDER BY 1, 2;\n",
+          "rawSql": "\nSELECT\n  date_trunc('day', o.recorded_on) AS time,\n  ot.tag_value AS metric,\n  COUNT(*)::double precision AS value\nFROM observations o\nJOIN observation_tags ot ON ot.observation_id = o.id\nJOIN devices ON devices.id = o.device_id\nWHERE ot.tag_key = '${tag_key}'\n  AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}\n  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n  AND ('__all' in (${tag_value}) OR ot.tag_value IN (${tag_value}))\n  AND o.recorded_on >= $__timeFrom()\n  AND o.recorded_on <= $__timeTo()\nGROUP BY 1, 2\nORDER BY 1, 2;\n",
           "rawQuery": true,
           "format": "time_series",
           "datasource": {
@@ -202,8 +228,8 @@
           }
         }
       ],
-      "title": "Observations Per Species Per Day",
-      "description": "Shows daily detection counts for each species.",
+      "title": "Observations Per Tag Per Day",
+      "description": "Shows daily detection counts for the selected tag values.",
       "datasource": {
         "type": "postgres",
         "uid": "acoupi-postgres"
@@ -247,7 +273,7 @@
       "targets": [
         {
           "refId": "A",
-          "rawSql": "\nSELECT\n  date_trunc('hour', o.recorded_on) AS time,\n  ot.tag_value AS metric,\n  COUNT(*)::double precision AS value\nFROM observations o\nJOIN observation_tags ot ON ot.observation_id = o.id\nJOIN devices ON devices.id = o.device_id\nWHERE ot.tag_key = 'species'\n  AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}\n  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n  AND o.recorded_on >= $__timeFrom()\n  AND o.recorded_on <= $__timeTo()\nGROUP BY 1, 2\nORDER BY 1, 2;\n",
+          "rawSql": "\nSELECT\n  date_trunc('hour', o.recorded_on) AS time,\n  ot.tag_value AS metric,\n  COUNT(*)::double precision AS value\nFROM observations o\nJOIN observation_tags ot ON ot.observation_id = o.id\nJOIN devices ON devices.id = o.device_id\nWHERE ot.tag_key = '${tag_key}'\n  AND COALESCE(ot.confidence_score, 0) >= ${confidence_threshold}\n  AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n  AND ('__all' in (${tag_value}) OR ot.tag_value IN (${tag_value}))\n  AND o.recorded_on >= $__timeFrom()\n  AND o.recorded_on <= $__timeTo()\nGROUP BY 1, 2\nORDER BY 1, 2;\n",
           "rawQuery": true,
           "format": "time_series",
           "datasource": {
@@ -256,8 +282,8 @@
           }
         }
       ],
-      "title": "Observations Per Hour Of Day By Species",
-      "description": "Shows hourly detection counts for each species.",
+      "title": "Observations Per Hour Of Day By Tag",
+      "description": "Shows hourly detection counts for the selected tag values.",
       "datasource": {
         "type": "postgres",
         "uid": "acoupi-postgres"
@@ -310,7 +336,7 @@
       "targets": [
         {
           "refId": "A",
-          "rawSql": "\nSELECT\n    observations.recorded_on,\n    species_tags.confidence_score\nFROM observations\nJOIN observation_tags AS species_tags ON species_tags.observation_id = observations.id\nJOIN devices ON devices.id = observations.device_id\nWHERE species_tags.tag_key = 'species'\n    AND COALESCE(species_tags.confidence_score, 1) >= ${confidence_threshold}\n    AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n    AND ('__all' in (${species_name}) OR species_tags.tag_value IN (${species_name}))\n    AND observations.recorded_on >= $__timeFrom()\n    AND observations.recorded_on <= $__timeTo()\nORDER BY recorded_on DESC, confidence_score ASC;\n",
+          "rawSql": "\nSELECT\n    observations.recorded_on,\n    selected_tags.confidence_score\nFROM observations\nJOIN observation_tags AS selected_tags ON selected_tags.observation_id = observations.id\nJOIN devices ON devices.id = observations.device_id\nWHERE selected_tags.tag_key = '${tag_key}'\n    AND COALESCE(selected_tags.confidence_score, 1) >= ${confidence_threshold}\n    AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n    AND ('__all' in (${tag_value}) OR selected_tags.tag_value IN (${tag_value}))\n    AND observations.recorded_on >= $__timeFrom()\n    AND observations.recorded_on <= $__timeTo()\nORDER BY recorded_on DESC, confidence_score ASC;\n",
           "rawQuery": true,
           "format": "table",
           "datasource": {
@@ -356,7 +382,7 @@
       "targets": [
         {
           "refId": "A",
-          "rawSql": "\nSELECT\n    species_tags.tag_value AS species,\n    devices.device_name AS device,\n    observations.recorded_on,\n    COALESCE(species_tags.confidence_score, 1) AS confidence_score,\n    observations.classified_by AS model_name,\n    observations.detection_score,\n    observations.event_start_seconds,\n    observations.event_end_seconds,\n    observations.frequency_low_hz,\n    observations.frequency_high_hz\nFROM observations\nJOIN observation_tags AS species_tags ON species_tags.observation_id = observations.id\nJOIN devices ON devices.id = observations.device_id\nWHERE species_tags.tag_key = 'species'\n    AND COALESCE(species_tags.confidence_score, 0) >= ${confidence_threshold}\n    AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n    AND observations.recorded_on >= $__timeFrom()\n    AND observations.recorded_on <= $__timeTo()\nORDER BY observations.recorded_on DESC\nLIMIT 500;\n",
+          "rawSql": "\nSELECT\n    selected_tags.tag_key,\n    selected_tags.tag_value,\n    devices.device_name AS device,\n    observations.recorded_on,\n    COALESCE(selected_tags.confidence_score, 1) AS confidence_score,\n    observations.classified_by AS model_name,\n    observations.detection_score,\n    observations.event_start_seconds,\n    observations.event_end_seconds,\n    observations.frequency_low_hz,\n    observations.frequency_high_hz\nFROM observations\nJOIN observation_tags AS selected_tags ON selected_tags.observation_id = observations.id\nJOIN devices ON devices.id = observations.device_id\nWHERE selected_tags.tag_key = '${tag_key}'\n    AND COALESCE(selected_tags.confidence_score, 0) >= ${confidence_threshold}\n    AND ('${device_name}' = '__all' OR devices.device_name = '${device_name}')\n    AND ('__all' in (${tag_value}) OR selected_tags.tag_value IN (${tag_value}))\n    AND observations.recorded_on >= $__timeFrom()\n    AND observations.recorded_on <= $__timeTo()\nORDER BY observations.recorded_on DESC\nLIMIT 500;\n",
           "rawQuery": true,
           "format": "table",
           "datasource": {
